@@ -376,13 +376,10 @@ class ReportGenerator:
         for i, vuln in enumerate(scan_results_sorted, 1):
             row = inv_table.add_row().cells
             row[0].text = f"#{i}"
-            row[1].text = vuln.severity
+            row[1].text = sev_map.get(vuln.severity, vuln.severity)
             row[2].text = vuln.owasp_category or "N/A"
             
             path = vuln.file_path
-            # No truncation requested by user
-            # if len(path) > 30:
-            #     path = "..." + path[-27:]
             row[3].text = path
             
             row[4].text = vuln.title

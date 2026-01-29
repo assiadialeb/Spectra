@@ -84,12 +84,12 @@ Be precise and technical but accessible.
 # 4. CONCLUSION (STEP 3)
 # -----------------------------------------------------------------------------
 PROMPT_CONCLUSION = """
-Based on the previous data (Total: {total_count}, including {critical_count} critical), write a short "CONCLUSION AND ACTION PLAN" in {language}.
+Based on the previous data (Total: {total_count}, including {critical_count} critical), write a short conclusion and action plan in {language}.
 
 Propose a macroscopic prioritization:
 - What must be done now (Immediate).
 - What must be done in the next Sprint (Short term).
 - An engaging closing sentence on integrating continuous security.
 
-Remain benevolent and professional.
+Remain benevolent and professional. Do not use titles (e.g. "Conclusion").
 """
