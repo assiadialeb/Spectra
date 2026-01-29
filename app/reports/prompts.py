@@ -70,8 +70,9 @@ We are analyzing a detected vulnerability family:
 {description}
 
 **TASK:**
-Write the following 3 sub-sections for the report (in plain text, in {language}):
+Write the following 4 sub-sections for the report (in plain text, in {language}):
 
+0.  **TITLE:** The title of the vulnerability, translated in {language} (e.g., "TITLE: Faille XSS..."). This MUST be the first line.
 1.  **Description:** Explain the nature of this flaw for a technical decision-maker in simple terms.
 2.  **Business Impact:** What is the concrete risk for the company (e.g., Data Theft, Service Outage)?
 3.  **Generic Recommendation:** What is the best practice to fix this type of flaw? (Do not discuss specific files here, that will be added automatically).

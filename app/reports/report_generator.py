@@ -62,7 +62,7 @@ class ReportGenerator:
         conclusion = self._ai_generate_conclusion(stats, target_lang, system_prompt)
         
         # 5. Build Word Document
-        return self._build_docx(scan, stats, grouped_vulns, exec_summary, detailed_analyses, conclusion)
+        return self._build_docx(scan, stats, grouped_vulns, exec_summary, detailed_analyses, conclusion, target_lang)
 
     def _calculate_stats(self, scan):
         results = scan.results
@@ -223,8 +223,21 @@ class ReportGenerator:
                     else:
                          paragraph.add_run(sub)
 
-    def _build_docx(self, scan, stats, grouped_vulns, summary, analyses, conclusion):
+    def _build_docx(self, scan, stats, grouped_vulns, summary, analyses, conclusion, language):
         doc = Document()
+        
+        # Severity Translation Map
+        sev_map = {
+            'CRITICAL': 'CRITICAL', 'HIGH': 'HIGH', 'MEDIUM': 'MEDIUM', 'LOW': 'LOW', 'INFO': 'INFO'
+        }
+        if language == 'French':
+            sev_map = {
+                'CRITICAL': 'CRITIQUE', 'HIGH': 'ÉLEVÉ', 'MEDIUM': 'MOYEN', 'LOW': 'FAIBLE', 'INFO': 'INFO'
+            }
+        elif language == 'Spanish':
+             sev_map = {
+                'CRITICAL': 'CRÍTICO', 'HIGH': 'ALTO', 'MEDIUM': 'MEDIO', 'LOW': 'BAJO', 'INFO': 'INFO'
+            }
         
         # --- TITLE ---
         title = doc.add_heading(f"RAPPORT D'AUDIT DE SÉCURITÉ", 0)
@@ -250,7 +263,7 @@ class ReportGenerator:
         
         for sev in ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']:
             row = table.add_row().cells
-            row[0].text = sev
+            row[0].text = sev_map.get(sev, sev)
             count = stats.get(sev.lower(), 0)
             row[1].text = str(count)
         
@@ -298,11 +311,31 @@ class ReportGenerator:
             if data['severity'] not in ['CRITICAL', 'HIGH']:
                 continue 
                 
-            doc.add_heading(f"{data['severity']} - {data['title']}", level=2)
-            
             # AI Content (Markdown Parsed)
             ai_text = analyses.get(signature, "Analyse automatique non disponible.")
-            self._markdown_to_docx(doc, ai_text)
+            
+            # Extract Translated Title if present
+            # PROMPT asked for "TITLE: <Calculated Title>" as first line
+            final_title = data['title']
+            lines = ai_text.split('\n')
+            
+            clean_ai_text_lines = []
+            
+            for line in lines:
+                if line.startswith("TITLE:"):
+                    # This is the translated title
+                    final_title = line.split("TITLE:", 1)[1].strip()
+                else:
+                    clean_ai_text_lines.append(line)
+            
+            final_ai_text = "\n".join(clean_ai_text_lines).strip()
+            
+            # Translate Severity
+            translated_severity = sev_map.get(data['severity'], data['severity'])
+                
+            doc.add_heading(f"{translated_severity} - {final_title}", level=2)
+            
+            self._markdown_to_docx(doc, final_ai_text)
             
             # Locations
             doc.add_heading("Localisations détectées :", level=3)
@@ -370,7 +403,7 @@ class ReportGenerator:
         settings = Settings.query.first()
         company = settings.company_name if settings and settings.company_name else "Spectra"
         
-        p.text = f"Généré automatiquement par {company} - Confidentiel"
+        p.text = f"TLP:AMBER | STRICTEMENT CONFIDENTIEL | © {company} {scan.timestamp.year}"
         
         f = io.BytesIO()
         doc.save(f)
