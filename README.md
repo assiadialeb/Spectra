@@ -40,7 +40,9 @@ The easiest way to run Spectra is using Docker, as it handles all external depen
     ```
 
 4.  **Access the application**:
-    Open your browser at [http://localhost:5000](http://localhost:5000).
+    Open your browser at [http://localhost:5001](http://localhost:5001).
+
+    > **Note:** The application uses port **5001** instead of the Flask default (5000) because port 5000 is frequently reserved by the AirPlay Receiver service on macOS.
 
 ---
 
