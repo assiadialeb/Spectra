@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <div>
+        <h1 class="h2">Scan Report #{{ scan.id }}</h1>
+        <p class="text-muted">
+            Project: <a href="{{ url_for('web.project_detail', project_id=scan.project.id) }}">{{ scan.project.name
+                }}</a> |
+            Completed: {{ scan.timestamp.strftime('%Y-%m-%d %H:%M') }}
+        </p>
+    </div>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('web.download_report', scan_id=scan.id) }}" class="btn btn-outline-primary me-2">
+            <i class="bi bi-file-word"></i> Export Word
+        </a>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <h5 class="card-title">Critical</h5>
+                <h2 class="display-4">{{ scan.results|selectattr('severity', 'equalto', 'CRITICAL')|list|length }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <h5 class="card-title">High</h5>
+                <h2 class="display-4">{{ scan.results|selectattr('severity', 'equalto', 'HIGH')|list|length }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-dark">
+            <div class="card-body">
+                <h5 class="card-title">Medium</h5>
+                <h2 class="display-4">{{ scan.results|selectattr('severity', 'equalto', 'MEDIUM')|list|length }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h5 class="card-title">Low/Info</h5>
+                <h2 class="display-4">{{ scan.results|selectattr('severity', 'in', ['LOW', 'INFO'])|list|length }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detailed Findings -->
+<div class="card">
+    <div class="card-header bg-white">
+        Detailed Findings
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Severity</th>
+                    <th>ID / Title</th>
+                    <th>Tool</th>
+                    <th>Location</th>
+                    <th>Remediation</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for vuln in results %}
+                <tr>
+                    <td style="width: 100px;">
+                        {% if vuln.severity == 'CRITICAL' %}
+                        <span class="badge badge-critical w-100">CRITICAL</span>
+                        {% elif vuln.severity == 'HIGH' %}
+                        <span class="badge badge-high w-100">HIGH</span>
+                        {% elif vuln.severity == 'MEDIUM' %}
+                        <span class="badge badge-medium w-100">MEDIUM</span>
+                        {% else %}
+                        <span class="badge badge-low w-100">{{ vuln.severity }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <strong>{{ vuln.vuln_id }}</strong><br>
+                        {{ vuln.title }}
+                        <div class="small text-muted mt-1">OWASP: {{ vuln.owasp_category }}</div>
+                    </td>
+                    <td>
+                        <span class="badge bg-light text-dark border">{{ vuln.tool }}</span>
+                    </td>
+                    <td>
+                        {% if vuln.file_path %}
+                        <code>{{ vuln.file_path }}</code>
+                        {% if vuln.line_number %}:{{ vuln.line_number }}{% endif %}
+                        {% else %}
+                        <span class="text-muted">N/A</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-link" data-bs-toggle="popover"
+                            title="Fix Recommendation" data-bs-content="{{ vuln.fix_recommendation }}">
+                            View Fix
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center py-4">
+                        <i class="bi bi-shield-check display-4 text-success"></i>
+                        <p class="mt-2 text-muted">No vulnerabilities found.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // Enable Popovers
+    document.addEventListener("DOMContentLoaded", function () {
+        var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'))
+        var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
+            return new bootstrap.Popover(popoverTriggerEl)
+        })
+    });
+</script>
+{% endblock %}

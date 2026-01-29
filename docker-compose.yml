@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  spectra:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      # Persist SQLite database
+      # Maps local 'instance' folder to container's 'instance' folder
+      - ./instance:/app/instance
+      
+      # Persist Trivy Cache
+      # Accelerates scans by keeping the vulnerability DB between restarts
+      - trivy-cache:/root/.cache
+      
+    # Load environment variables from .env file
+    env_file:
+      - .env
+    environment:
+      - FLASK_APP=run.py
+      # Ensure database URL points to the volume location if needed, 
+      # though default sqlite:///spectra.db in instance folder works fine.
+
+volumes:
+  trivy-cache:

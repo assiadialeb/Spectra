@@ -1,0 +1,109 @@
+/* Google Touch Design System */
+:root {
+    --primary-color: #1a73e8;
+    --critical-color: #d93025;
+    --high-color: #e37400;
+    --medium-color: #f9ab00;
+    --low-color: #188038;
+    --text-color: #202124;
+    --bg-light: #f8f9fa;
+    --sidebar-bg: #202124; /* Charcoal */
+    --sidebar-text: #ffffff;
+}
+
+body {
+    font-family: 'Inter', 'Roboto', sans-serif;
+    color: var(--text-color);
+    background-color: var(--bg-light);
+    overflow-x: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+    height: 100vh;
+    width: 250px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    background-color: var(--sidebar-bg);
+    color: var(--sidebar-text);
+    padding-top: 1rem;
+    z-index: 1000;
+}
+
+.sidebar .nav-link {
+    color: rgba(255, 255, 255, 0.7);
+    padding: 0.75rem 1.5rem;
+    font-weight: 500;
+}
+
+.sidebar .nav-link:hover, .sidebar .nav-link.active {
+    color: #fff;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-brand {
+    padding: 1rem 1.5rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.5px;
+    margin-bottom: 1rem;
+}
+
+/* Main Content */
+.main-content {
+    margin-left: 250px;
+    padding: 2rem;
+}
+
+/* Cards */
+.card {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    transition: box-shadow 0.2s ease;
+    background-color: #fff;
+}
+
+.card:hover {
+    box-shadow: 0 4px 6px rgba(0,0,0,0.12);
+}
+
+.card-header {
+    background-color: transparent;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    font-weight: 600;
+    padding: 1rem 1.5rem;
+}
+
+/* Buttons */
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    font-weight: 500;
+}
+
+.btn-primary:hover {
+    background-color: #1557b0;
+    border-color: #1557b0;
+}
+
+/* Badges */
+.badge-critical { background-color: var(--critical-color); color: white; }
+.badge-high { background-color: var(--high-color); color: white; }
+.badge-medium { background-color: var(--medium-color); color: black; }
+.badge-low { background-color: var(--low-color); color: white; }
+.badge-info { background-color: #17a2b8; color: white; }
+
+/* Utilities */
+.text-critical { color: var(--critical-color); }
+.text-high { color: var(--high-color); }
+.text-medium { color: var(--medium-color); }
+.text-low { color: var(--low-color); }
+
+.table th {
+    font-weight: 600;
+    color: #5f6368;
+    border-top: none;
+}
