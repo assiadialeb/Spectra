@@ -31,7 +31,7 @@
                 href="{{ url_for('web.create_project') }}">
                 <i class="bi bi-plus-circle-fill me-2"></i> New Project
             </a>
-            <a class="nav-link" href="#">
+            <a class="nav-link {% if active_page == 'history' %}active{% endif %}" href="{{ url_for('web.history') }}">
                 <i class="bi bi-clock-history me-2"></i> History
             </a>
             <a class="nav-link {% if active_page == 'settings' %}active{% endif %}"

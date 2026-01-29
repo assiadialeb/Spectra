@@ -196,3 +196,9 @@ def add_repository(project_id):
         db.session.commit()
         flash('Repository added.')
     return redirect(url_for('web.project_detail', project_id=project_id))
+
+@web.route('/history')
+def history():
+    # Limit to last 50 scans for performance
+    scans = Scan.query.order_by(Scan.timestamp.desc()).limit(50).all()
+    return render_template('history.html', scans=scans)

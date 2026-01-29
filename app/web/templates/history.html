@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% set active_page = "history" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Global Scan History</h1>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header bg-white">
+        <i class="bi bi-clock-history me-2"></i> All Scans
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Date</th>
+                    <th>Project</th>
+                    <th>Status</th>
+                    <th>Findings Summary</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for scan in scans %}
+                <tr>
+                    <td>
+                        {{ scan.timestamp.strftime('%Y-%m-%d %H:%M') }}
+                        <br>
+                        <small class="text-muted">#{{ scan.id }}</small>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('web.project_detail', project_id=scan.project.id) }}"
+                            class="text-decoration-none fw-bold">
+                            {{ scan.project.name }}
+                        </a>
+                    </td>
+                    <td>
+                        {% if scan.status == 'COMPLETED' %}
+                        <span class="badge bg-success">Completed</span>
+                        {% elif scan.status == 'RUNNING' %}
+                        <span class="badge bg-warning text-dark">Running</span>
+                        {% elif scan.status == 'FAILED' %}
+                        <span class="badge bg-danger">Failed</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ scan.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if scan.status == 'COMPLETED' %}
+                        {% set crit = scan.results|selectattr('severity', 'equalto', 'CRITICAL')|list|length %}
+                        {% set high = scan.results|selectattr('severity', 'equalto', 'HIGH')|list|length %}
+
+                        {% if crit > 0 or high > 0 %}
+                        <span class="badge badge-critical me-1">{{ crit }} Critical</span>
+                        <span class="badge badge-high">{{ high }} High</span>
+                        {% else %}
+                        <span class="badge bg-light text-dark border">Clean</span>
+                        {% endif %}
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if scan.status == 'COMPLETED' %}
+                        <a href="{{ url_for('web.scan_report', scan_id=scan.id) }}"
+                            class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-file-text"></i> Report
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center py-4 text-muted">
+                        No scans recorded yet.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
