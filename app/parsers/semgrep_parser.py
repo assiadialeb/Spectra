@@ -55,13 +55,14 @@ class SemgrepParser(BaseParser):
         # 2. QUALITY FINDING
         else:
             # Map Semgrep impact/confidence to estimated effort? For now default 5min.
+            # Categories: maintainability, correctness, best-practice, performance...
             return QualityIssue(
                 scan_id=scan_id,
                 tool='semgrep',
                 check_id=item.get('check_id'),
                 title=item.get('check_id').split('.')[-1].replace('-', ' ').title(),
                 description=extra.get('message'),
-                category=category.title(), # correctness -> Correctness
+                category=category.title(), 
                 severity=severity, # INFO/WARNING/ERROR
                 file_path=path,
                 line_number=item.get('start', {}).get('line'),
