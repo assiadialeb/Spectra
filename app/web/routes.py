@@ -105,12 +105,63 @@ def execute_scan(scan_id):
         engine = ScanEngine(scan.id)
         
         # Run Scan
-        vulnerabilities = engine.run(scan.project.repositories)
+        vulnerabilities, quality_issues = engine.run(scan.project.repositories)
         
         # Save Results
         for vuln in vulnerabilities:
             db.session.add(vuln)
+        
+        for issue in quality_issues:
+            db.session.add(issue)
+
+        # --- CALCULATE GRADES ---
+        
+        # 1. Security Score/Grade
+        critical_count = sum(1 for v in vulnerabilities if v.severity == 'CRITICAL')
+        high_count = sum(1 for v in vulnerabilities if v.severity == 'HIGH')
+        medium_count = sum(1 for v in vulnerabilities if v.severity == 'MEDIUM')
+        
+        if critical_count > 0:
+            scan.security_grade = 'F'
+            scan.security_score = 40
+        elif high_count > 0:
+            scan.security_grade = 'D'
+            scan.security_score = 55
+        elif medium_count > 5:
+            scan.security_grade = 'C'
+            scan.security_score = 70
+        elif medium_count > 0:
+            scan.security_grade = 'B'
+            scan.security_score = 85
+        else:
+            scan.security_grade = 'A'
+            scan.security_score = 100
             
+        # 2. Quality Score/Grade
+        # Penalty based model
+        # High severity quality issue (Bug/Error) = -5 pts
+        # Medium (Warning) = -2 pts
+        # Low (Info) = -0.5 (rounded)
+        
+        quality_penalty = 0
+        for q in quality_issues:
+            if q.severity == 'HIGH':
+                quality_penalty += 5
+            elif q.severity == 'MEDIUM':
+                quality_penalty += 2
+            else:
+                quality_penalty += 0.5
+                
+        # Normalize score 0-100
+        q_score = max(0, 100 - int(quality_penalty))
+        scan.quality_score = q_score
+        
+        if q_score >= 90: scan.quality_grade = 'A'
+        elif q_score >= 80: scan.quality_grade = 'B'
+        elif q_score >= 60: scan.quality_grade = 'C'
+        elif q_score >= 40: scan.quality_grade = 'D'
+        else: scan.quality_grade = 'F'
+
         scan.status = 'COMPLETED'
         db.session.commit()
         return "OK"

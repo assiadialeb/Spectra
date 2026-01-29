@@ -23,6 +23,7 @@ class ScanEngine:
         5. Cleanup
         """
         all_vulnerabilities = []
+        all_quality = []
         
         # Create unique temp dir for this scan
         scan_dir = tempfile.mkdtemp(prefix=f"spectra_scan_{self.scan_id}_")
@@ -35,16 +36,16 @@ class ScanEngine:
             # 2. Run Trivy
             print(f"[Scan {self.scan_id}] Running Trivy...")
             trivy_results = self._run_trivy(scan_dir)
-            all_vulnerabilities.extend(
-                self.trivy_parser.parse(trivy_results, self.scan_id, base_path=scan_dir)
-            )
+            trivy_vulns, trivy_quality = self.trivy_parser.parse(trivy_results, self.scan_id, base_path=scan_dir)
+            all_vulnerabilities.extend(trivy_vulns)
+            all_quality.extend(trivy_quality)
             
             # 3. Run Semgrep
             print(f"[Scan {self.scan_id}] Running Semgrep...")
             semgrep_results = self._run_semgrep(scan_dir)
-            all_vulnerabilities.extend(
-                self.semgrep_parser.parse(semgrep_results, self.scan_id, base_path=scan_dir)
-            )
+            semgrep_vulns, semgrep_quality = self.semgrep_parser.parse(semgrep_results, self.scan_id, base_path=scan_dir)
+            all_vulnerabilities.extend(semgrep_vulns)
+            all_quality.extend(semgrep_quality)
             
         except Exception as e:
             print(f"[Scan {self.scan_id}] Error: {e}")
@@ -54,7 +55,7 @@ class ScanEngine:
             print(f"[Scan {self.scan_id}] Cleaning up workspace...")
             shutil.rmtree(scan_dir, ignore_errors=True)
             
-        return all_vulnerabilities
+        return all_vulnerabilities, all_quality
 
     def _clone_repos(self, repositories, base_dir):
         for repo in repositories:
@@ -98,7 +99,14 @@ class ScanEngine:
             'semgrep', 'scan',
             '--json',
             '--output', output_file,
-            '--config', 'auto', # Use default rule registry
+            # Explicit Security Rulesets
+            '--config', 'p/security-audit',
+            '--config', 'p/secrets',
+            '--config', 'p/owasp-top-ten',
+            # Explicit Quality Rulesets (for V2 readiness)
+            '--config', 'p/python', # Include general python rules which contain correctness/maintainability
+            '--config', 'p/maintainability',
+            '--config', 'p/correctness',
             '--no-git-ignore', # Important: scan everything in the temp dir, don't rely on git tracking if .git missing
             target_dir
         ]

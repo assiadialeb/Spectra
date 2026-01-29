@@ -7,7 +7,7 @@ class TrivyParser(BaseParser):
         
         # Trivy returns a list of "Results" (per target/file usually)
         if 'Results' not in data:
-            return vulnerabilities
+            return vulnerabilities, []
             
         for result in data['Results']:
             target = result.get('Target', 'Unknown')
@@ -24,7 +24,8 @@ class TrivyParser(BaseParser):
                 for misconf in result['Misconfigurations']:
                     vulnerabilities.append(self._map_misconf(misconf, target, scan_id))
                     
-        return vulnerabilities
+                    
+        return vulnerabilities, []
 
     def _map_vuln(self, item, target, scan_id):
         # Map Severity

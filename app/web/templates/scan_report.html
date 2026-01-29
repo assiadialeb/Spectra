@@ -17,105 +17,153 @@
     </div>
 </div>
 
-<!-- Summary Cards -->
+<!-- HEALTH CARDS (V2) -->
 <div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card bg-danger text-white">
+    <!-- Security Grade -->
+    <div class="col-md-6">
+        <div class="card h-100 border-{% if scan.security_grade == 'A' %}success{% elif scan.security_grade == 'B' %}primary{% elif scan.security_grade == 'C' %}warning{% else %}danger{% endif %} text-center">
+            <div class="card-header bg-transparent">Security Grade</div>
             <div class="card-body">
-                <h5 class="card-title">Critical</h5>
-                <h2 class="display-4">{{ scan.results|selectattr('severity', 'equalto', 'CRITICAL')|list|length }}</h2>
+                <h1 class="display-1 fw-bold text-{% if scan.security_grade == 'A' %}success{% elif scan.security_grade == 'B' %}primary{% elif scan.security_grade == 'C' %}warning{% else %}danger{% endif %}">
+                    {{ scan.security_grade or 'N/A' }}
+                </h1>
+                <p class="text-muted">Score: {{ scan.security_score or 0 }}/100</p>
+                <div class="d-flex justify-content-center gap-2">
+                    <span class="badge bg-danger">Critical: {{ scan.results|selectattr('severity', 'equalto', 'CRITICAL')|list|length }}</span>
+                    <span class="badge bg-warning text-dark">High: {{ scan.results|selectattr('severity', 'equalto', 'HIGH')|list|length }}</span>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card bg-warning text-dark">
+    <!-- Quality Grade -->
+    <div class="col-md-6">
+        <div class="card h-100 border-{% if scan.quality_grade == 'A' %}success{% elif scan.quality_grade == 'B' %}primary{% elif scan.quality_grade == 'C' %}warning{% else %}danger{% endif %} text-center">
+            <div class="card-header bg-transparent">Quality Grade</div>
             <div class="card-body">
-                <h5 class="card-title">High</h5>
-                <h2 class="display-4">{{ scan.results|selectattr('severity', 'equalto', 'HIGH')|list|length }}</h2>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card bg-info text-dark">
-            <div class="card-body">
-                <h5 class="card-title">Medium</h5>
-                <h2 class="display-4">{{ scan.results|selectattr('severity', 'equalto', 'MEDIUM')|list|length }}</h2>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card bg-success text-white">
-            <div class="card-body">
-                <h5 class="card-title">Low/Info</h5>
-                <h2 class="display-4">{{ scan.results|selectattr('severity', 'in', ['LOW', 'INFO'])|list|length }}</h2>
+                <h1 class="display-1 fw-bold text-{% if scan.quality_grade == 'A' %}success{% elif scan.quality_grade == 'B' %}primary{% elif scan.quality_grade == 'C' %}warning{% else %}danger{% endif %}">
+                    {{ scan.quality_grade or 'N/A' }}
+                </h1>
+                <p class="text-muted">Score: {{ scan.quality_score or 0 }}/100</p>
+                <div class="d-flex justify-content-center gap-2">
+                     <span class="badge bg-info">Issues: {{ scan.quality_issues|length }}</span>
+                     <span class="badge bg-secondary">Debt: {{ scan.quality_issues|sum(attribute='effort_minutes') }} min</span>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Detailed Findings -->
-<div class="card">
-    <div class="card-header bg-white">
-        Detailed Findings
+<!-- TABS INTERFACE -->
+<ul class="nav nav-tabs mb-3" id="scanTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="security-tab" data-bs-toggle="tab" data-bs-target="#security" type="button" role="tab">
+            <i class="bi bi-shield-lock-fill me-2"></i>Security Findings
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="quality-tab" data-bs-toggle="tab" data-bs-target="#quality" type="button" role="tab">
+            <i class="bi bi-code-square me-2"></i>Quality & Maintainability
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="scanTabsContent">
+    
+    <!-- SECURITY TAB -->
+    <div class="tab-pane fade show active" id="security" role="tabpanel">
+        <div class="card border-top-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 100px;">Severity</th>
+                            <th>ID / Title</th>
+                            <th>Tool</th>
+                            <th>Location</th>
+                            <th>Remediation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for vuln in results %}
+                        <tr>
+                            <td>
+                                {% if vuln.severity == 'CRITICAL' %}
+                                <span class="badge w-100 bg-danger">CRITICAL</span>
+                                {% elif vuln.severity == 'HIGH' %}
+                                <span class="badge w-100 bg-warning text-dark">HIGH</span>
+                                {% elif vuln.severity == 'MEDIUM' %}
+                                <span class="badge w-100 bg-info text-dark">MEDIUM</span>
+                                {% else %}
+                                <span class="badge w-100 bg-secondary">{{ vuln.severity }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong>{{ vuln.vuln_id }}</strong><br>
+                                {{ vuln.title }}
+                                <div class="small text-muted mt-1">OWASP: {{ vuln.owasp_category }}</div>
+                            </td>
+                            <td><span class="badge bg-light text-dark border">{{ vuln.tool }}</span></td>
+                            <td>
+                                {% if vuln.file_path %}<code>{{ vuln.file_path }}</code>{% if vuln.line_number %}:{{ vuln.line_number }}{% endif %}{% else %}N/A{% endif %}
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-link" data-bs-toggle="popover" title="Fix" data-bs-content="{{ vuln.fix_recommendation }}">View Fix</button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="text-center py-4"><p class="text-muted">No security vulnerabilities found.</p></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th>Severity</th>
-                    <th>ID / Title</th>
-                    <th>Tool</th>
-                    <th>Location</th>
-                    <th>Remediation</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for vuln in results %}
-                <tr>
-                    <td style="width: 100px;">
-                        {% if vuln.severity == 'CRITICAL' %}
-                        <span class="badge badge-critical w-100">CRITICAL</span>
-                        {% elif vuln.severity == 'HIGH' %}
-                        <span class="badge badge-high w-100">HIGH</span>
-                        {% elif vuln.severity == 'MEDIUM' %}
-                        <span class="badge badge-medium w-100">MEDIUM</span>
+
+    <!-- QUALITY TAB -->
+    <div class="tab-pane fade" id="quality" role="tabpanel">
+        <div class="card border-top-0">
+             <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 100px;">Impact</th>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th>Location</th>
+                            <th>Est. Effort</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for issue in scan.quality_issues %}
+                        <tr>
+                            <td>
+                                {% if issue.severity == 'HIGH' %}
+                                <span class="text-danger fw-bold"><i class="bi bi-bug-fill"></i> Bug</span>
+                                {% elif issue.severity == 'MEDIUM' %}
+                                <span class="text-warning fw-bold"><i class="bi bi-exclamation-triangle-fill"></i> Warning</span>
+                                {% else %}
+                                <span class="text-info fw-bold"><i class="bi bi-info-circle-fill"></i> Info</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="badge bg-light text-dark border">{{ issue.category }}</span></td>
+                            <td>
+                                <strong>{{ issue.title }}</strong><br>
+                                <small class="text-muted">{{ issue.description|truncate(100) }}</small>
+                            </td>
+                            <td>
+                                <code>{{ issue.file_path }}</code>:{{ issue.line_number }}
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ issue.effort_minutes }} min</span>
+                            </td>
+                        </tr>
                         {% else %}
-                        <span class="badge badge-low w-100">{{ vuln.severity }}</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <strong>{{ vuln.vuln_id }}</strong><br>
-                        {{ vuln.title }}
-                        <div class="small text-muted mt-1">OWASP: {{ vuln.owasp_category }}</div>
-                    </td>
-                    <td>
-                        <span class="badge bg-light text-dark border">{{ vuln.tool }}</span>
-                    </td>
-                    <td>
-                        {% if vuln.file_path %}
-                        <code>{{ vuln.file_path }}</code>
-                        {% if vuln.line_number %}:{{ vuln.line_number }}{% endif %}
-                        {% else %}
-                        <span class="text-muted">N/A</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <button type="button" class="btn btn-sm btn-link" data-bs-toggle="popover"
-                            title="Fix Recommendation" data-bs-content="{{ vuln.fix_recommendation }}">
-                            View Fix
-                        </button>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="5" class="text-center py-4">
-                        <i class="bi bi-shield-check display-4 text-success"></i>
-                        <p class="mt-2 text-muted">No vulnerabilities found.</p>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                        <tr><td colspan="5" class="text-center py-4"><p class="text-muted">No quality issues found.</p></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 
