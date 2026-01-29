@@ -2,7 +2,7 @@ services:
   spectra:
     build: .
     ports:
-      - "5001:5000"
+      - "5001:5001"
     volumes:
       # Persist SQLite database
       # Maps local 'instance' folder to container's 'instance' folder
