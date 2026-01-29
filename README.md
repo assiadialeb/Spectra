@@ -24,7 +24,7 @@ The easiest way to run Spectra is using Docker, as it handles all external depen
 
 1.  **Clone the repository**:
     ```bash
-    git clone https://github.com/your-org/spectra.git
+    git clone https://github.com/assiadialeb/Spectra.git
     cd spectra
     ```
 
@@ -55,7 +55,7 @@ The easiest way to run Spectra is using Docker, as it handles all external depen
 
 1.  **Clone and Setup Environment**:
     ```bash
-    git clone https://github.com/your-org/spectra.git
+    git clone https://github.com/assiadialeb/Spectra.git
     cd spectra
     python3 -m venv venv
     source venv/bin/activate
@@ -91,4 +91,4 @@ Once the application is running, navigate to the **Settings** page to configure:
 
 ## 📄 License
 
-Spectra is proprietary software. All rights reserved.
+Spectra is released under AGPL-3.0 license.
