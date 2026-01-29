@@ -31,19 +31,35 @@ class ReportGenerator:
         grouped_vulns = self._group_vulnerabilities(scan)
         top_risks_text = self._format_top_risks(grouped_vulns)
         
+        # Get Language & Company Config
+        from app.models_settings import Settings
+        settings = Settings.query.first()
+        
+        lang_code = settings.language if settings and settings.language else 'fr'
+        lang_map = {'fr': 'French', 'en': 'English', 'es': 'Spanish'}
+        target_lang = lang_map.get(lang_code, 'French')
+        
+        company_name = settings.company_name if settings and settings.company_name else "Spectra"
+        
+        # Prepare System Instruction
+        system_prompt = SYSTEM_INSTRUCTION_RSSI.format(
+            language=target_lang,
+            company_name=company_name
+        )
+        
         # 2. AI Generation - Step 1: Executive Summary
-        exec_summary = self._ai_generate_summary(scan.project.name, stats, top_risks_text)
+        exec_summary = self._ai_generate_summary(scan.project.name, stats, top_risks_text, target_lang, system_prompt)
         
         # 3. AI Generation - Step 2: Critical/High Details
         detailed_analyses = {}
         priority_groups = {k: v for k, v in grouped_vulns.items() if v['severity'] in ['CRITICAL', 'HIGH']}
         
         for signature, data in priority_groups.items():
-            analysis = self._ai_generate_vuln_details(data)
+            analysis = self._ai_generate_vuln_details(data, target_lang, system_prompt)
             detailed_analyses[signature] = analysis
 
         # 4. AI Generation - Step 3: Conclusion
-        conclusion = self._ai_generate_conclusion(stats)
+        conclusion = self._ai_generate_conclusion(stats, target_lang, system_prompt)
         
         # 5. Build Word Document
         return self._build_docx(scan, stats, grouped_vulns, exec_summary, detailed_analyses, conclusion)
@@ -97,11 +113,11 @@ class ReportGenerator:
             text += f"{i}. [{item['severity']}] {item['title']} ({item['tool']})\n"
             
         if not text:
-            text = "Aucune vulnérabilité majeure détectée."
+            text = "No major vulnerabilities detected."
             
         return text
 
-    def _ai_generate_summary(self, project_name, stats, top_risks_text):
+    def _ai_generate_summary(self, project_name, stats, top_risks_text, language, system_instruction):
         if not self.ai_provider:
             return "AI Provider not configured. Executive summary unavailable."
             
@@ -112,12 +128,13 @@ class ReportGenerator:
             high_count=stats['high'],
             medium_count=stats['medium'],
             low_count=stats['low'],
-            top_3_risks_text=top_risks_text
+            top_3_risks_text=top_risks_text,
+            language=language
         )
         
-        return self.ai_provider.generate(prompt, system_instruction=SYSTEM_INSTRUCTION_RSSI)
+        return self.ai_provider.generate(prompt, system_instruction=system_instruction)
 
-    def _ai_generate_vuln_details(self, data):
+    def _ai_generate_vuln_details(self, data, language, system_instruction):
         if not self.ai_provider:
             return "Description unavailable (No AI)."
             
@@ -126,21 +143,23 @@ class ReportGenerator:
             owasp_category=data['owasp'],
             tool=data['tool'],
             severity=data['severity'],
-            description=data['description']
+            description=data['description'],
+            language=language
         )
         
-        return self.ai_provider.generate(prompt, system_instruction=SYSTEM_INSTRUCTION_RSSI)
+        return self.ai_provider.generate(prompt, system_instruction=system_instruction)
 
-    def _ai_generate_conclusion(self, stats):
+    def _ai_generate_conclusion(self, stats, language, system_instruction):
         if not self.ai_provider:
             return "Conclusion unavailable."
             
         prompt = PROMPT_CONCLUSION.format(
             total_count=stats['total'],
-            critical_count=stats['critical']
+            critical_count=stats['critical'],
+            language=language
         )
         
-        return self.ai_provider.generate(prompt, system_instruction=SYSTEM_INSTRUCTION_RSSI)
+        return self.ai_provider.generate(prompt, system_instruction=system_instruction)
 
     def _markdown_to_docx(self, doc, text):
         """

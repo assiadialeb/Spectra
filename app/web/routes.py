@@ -66,6 +66,17 @@ def delete_project(project_id):
         
     return redirect(url_for('web.dashboard'))
 
+@web.route('/projects/<int:project_id>/update', methods=['POST'])
+def update_project_description(project_id):
+    project = Project.query.get_or_404(project_id)
+    description = request.form.get('description')
+    
+    if description is not None:
+        project.description = description
+        db.session.commit()
+        
+    return redirect(url_for('web.project_detail', project_id=project.id))
+
 @web.route('/projects/<int:project_id>/scan', methods=['POST'])
 def run_scan(project_id):
     project = Project.query.get_or_404(project_id)

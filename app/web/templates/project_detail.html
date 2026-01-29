@@ -2,9 +2,40 @@
 
 {% block content %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <div>
         <h1 class="h2">{{ project.name }}</h1>
-        <p class="text-muted">{{ project.description }}</p>
+        
+        <!-- Description Display -->
+        <div id="desc-display">
+            <p class="text-muted d-inline-block mb-0">{{ project.description }}</p>
+            <button class="btn btn-sm text-secondary border-0 p-0 ms-2" onclick="toggleDescriptionEdit()" title="Edit Description">
+                <i class="bi bi-pencil-square"></i>
+            </button>
+        </div>
+
+        <!-- Description Form (Hidden by default) -->
+        <form id="desc-form" action="{{ url_for('web.update_project_description', project_id=project.id) }}" method="POST" class="d-none mt-2" style="max-width: 500px;">
+            <div class="input-group">
+                <input type="text" class="form-control" name="description" value="{{ project.description }}" placeholder="Project description...">
+                <button class="btn btn-primary" type="submit"><i class="bi bi-check-lg"></i></button>
+                <button class="btn btn-outline-secondary" type="button" onclick="toggleDescriptionEdit()"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </form>
+
+        <script>
+            function toggleDescriptionEdit() {
+                const display = document.getElementById('desc-display');
+                const form = document.getElementById('desc-form');
+                
+                if (form.classList.contains('d-none')) {
+                    form.classList.remove('d-none');
+                    display.classList.add('d-none');
+                    form.querySelector('input').focus();
+                } else {
+                    form.classList.add('d-none');
+                    display.classList.remove('d-none');
+                }
+            }
+        </script>
     </div>
     <div class="btn-toolbar mb-2 mb-md-0">
         <form action="{{ url_for('web.run_scan', project_id=project.id) }}" method="POST" class="me-2">
