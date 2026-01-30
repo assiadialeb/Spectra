@@ -52,6 +52,7 @@ The easiest way to run Spectra is using Docker, as it handles all external depen
 *   Python 3.12+
 *   Git
 *   **Trivy** (Must be installed and in your PATH). [Installation Guide](https://aquasecurity.github.io/trivy/latest/getting-started/installation/)
+*   **Gitleaks** (Must be installed and in your PATH). [Installation Guide](https://github.com/gitleaks/gitleaks)
 
 #### Steps
 
