@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from app.models import db, Project, Repository, Scan, Vulnerability
+from app.models import db, Project, Repository, Scan, Vulnerability, Secret
 from app.models_settings import Settings
 from app.scanners.scan_engine import ScanEngine
 from datetime import datetime
@@ -105,7 +105,7 @@ def execute_scan(scan_id):
         engine = ScanEngine(scan.id)
         
         # Run Scan
-        vulnerabilities, quality_issues = engine.run(scan.project.repositories)
+        vulnerabilities, quality_issues, secrets = engine.run(scan.project.repositories)
         
         # Save Results
         for vuln in vulnerabilities:
@@ -113,12 +113,16 @@ def execute_scan(scan_id):
         
         for issue in quality_issues:
             db.session.add(issue)
+            
+        for secret_data in secrets:
+            secret = Secret(scan_id=scan.id, **secret_data)
+            db.session.add(secret)
 
         # --- CALCULATE GRADES ---
         
         # 1. Security Score/Grade
         critical_count = sum(1 for v in vulnerabilities if v.severity == 'CRITICAL')
-        high_count = sum(1 for v in vulnerabilities if v.severity == 'HIGH')
+        high_count = sum(1 for v in vulnerabilities if v.severity == 'HIGH') + len(secrets)
         medium_count = sum(1 for v in vulnerabilities if v.severity == 'MEDIUM')
         
         if critical_count > 0:
@@ -191,7 +195,14 @@ def scan_report(scan_id):
         key=lambda v: severity_order.get(v.severity, 6)
     )
     
-    return render_template('scan_report.html', scan=scan, results=sorted_results)
+    # Sort secrets by Date (Newest first)
+    sorted_secrets = sorted(
+        scan.secrets,
+        key=lambda s: s.commit_date if s.commit_date else datetime.min,
+        reverse=True
+    )
+    
+    return render_template('scan_report.html', scan=scan, results=sorted_results, secrets=sorted_secrets)
 
 @web.route('/scans/<int:scan_id>/report/download')
 def download_report(scan_id):

@@ -25,7 +25,9 @@ def clone_repository(repo_url, target_dir):
     try:
         # Ensure target dir does not exist or clean it? 
         # For now, let git handle it or assume new unique dir per scan
-        cmd = ['git', 'clone', '--depth', '1', final_url, target_dir]
+        # Use partial clone to get history (for gitleaks) without all blobs (for speed).
+        # We generally DO want a checkout so Semgrep/Trivy have files to scan.
+        cmd = ['git', 'clone', '--filter=blob:none', final_url, target_dir]
         
         # Mask the token in logs/output
         safe_cmd_str = ' '.join(cmd).replace(pat, '***') if pat else ' '.join(cmd)

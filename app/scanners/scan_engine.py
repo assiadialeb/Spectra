@@ -146,6 +146,11 @@ class ScanEngine:
             all_vulnerabilities.extend(semgrep_vulns)
             all_quality.extend(semgrep_quality)
             
+            # 4. Run Gitleaks
+            print(f"[Scan {self.scan_id}] Running Gitleaks...")
+            gitleaks_results = self._run_gitleaks(scan_dir)
+            all_secrets = self._parse_gitleaks(gitleaks_results)
+            
         except Exception as e:
             print(f"[Scan {self.scan_id}] Error: {e}")
             raise e
@@ -154,7 +159,111 @@ class ScanEngine:
             print(f"[Scan {self.scan_id}] Cleaning up workspace...")
             shutil.rmtree(scan_dir, ignore_errors=True)
             
-        return all_vulnerabilities, all_quality
+        return all_vulnerabilities, all_quality, all_secrets
+
+    def _run_gitleaks(self, target_dir):
+        all_leaks = []
+        
+        # Iterate over each cloned repository in the target_dir
+        # Structure: target_dir/<repo_name>/...
+        
+        # Get list of subdirectories (repos)
+        subdirs = [os.path.join(target_dir, d) for d in os.listdir(target_dir) if os.path.isdir(os.path.join(target_dir, d))]
+        
+        for repo_dir in subdirs:
+            # Skip non-directory items or hidden .git if it were at root (shouldn't be)
+            if not os.path.exists(os.path.join(repo_dir, '.git')):
+                continue
+                
+            output_file = os.path.join(repo_dir, 'gitleaks_output.json')
+            
+            # gitleaks detect --source=repo_dir --report-format=json --report-path=output_file
+            cmd = [
+                'gitleaks', 'detect',
+                '--source', repo_dir,
+                '--report-format', 'json',
+                '--report-path', output_file,
+                '--no-banner',
+                '--redact', # Redact secrets in output
+                '--exit-code', '0', # Don't return error on leaks
+                '--verbose',
+            ]
+            
+            try:
+                print(f"Executing Gitleaks command for {os.path.basename(repo_dir)}: {' '.join(cmd)}")
+                subprocess.run(cmd, check=True, capture_output=True)
+                
+                if os.path.exists(output_file):
+                    with open(output_file, 'r') as f:
+                        leaks = json.load(f)
+                        # Enrich leak data with repo name if needed? 
+                        # Or maybe just append. The path will be relative to repo_dir usually in report.
+                        # Let's verify file paths later.
+                        all_leaks.extend(leaks)
+                        
+            except subprocess.CalledProcessError as e:
+                print(f"Gitleaks failed for {os.path.basename(repo_dir)}: {e.stderr.decode() if e.stderr else e}")
+            except Exception as e:
+                print(f"Gitleaks error: {e}")
+            
+        return all_leaks
+
+    def _parse_gitleaks(self, results):
+        secrets = []
+        from datetime import datetime
+        
+        # Gitleaks JSON structure:
+        # [{
+        #   "Description": "Generic API Key",
+        #   "StartLine": 12,
+        #   "EndLine": 12,
+        #   "StartColumn": 18,
+        #   "EndColumn": 48,
+        #   "Match": "key=...",
+        #   "Secret": "...",
+        #   "File": "configs/app.ini",
+        #   "Commit": "...",
+        #   "Entropy": 3.5,
+        #   "Author": "...",
+        #   "Email": "...",
+        #   "Date": "2021-01-01T12:00:00Z",
+        #   "Message": "..."
+        # }]
+
+        for leak in results:
+            try:
+                # Convert date string to datetime object
+                # Format is usually ISO 8601: 2023-10-25T10:43:12Z
+                leak_date = None
+                if 'Date' in leak:
+                    try:
+                        leak_date = datetime.strptime(leak.get('Date'), "%Y-%m-%dT%H:%M:%SZ")
+                    except ValueError:
+                         # Try with microsecond or other format if needed, or fallback
+                        try:
+                            leak_date = datetime.fromisoformat(leak.get('Date').replace('Z', '+00:00'))
+                        except:
+                            pass
+                
+                secret = {
+                    'title': leak.get('Description', 'Unknown Secret'),
+                    'match': leak.get('Secret', ''), # Using Secret field usually contains the match
+                    'rule_id': leak.get('RuleID', leak.get('Description')),
+                    'file_path': leak.get('File', ''),
+                    'start_line': leak.get('StartLine'),
+                    'end_line': leak.get('EndLine'),
+                    'commit_sha': leak.get('Commit'),
+                    'commit_message': leak.get('Message'),
+                    'commit_date': leak_date,
+                    'author': leak.get('Author'),
+                    'email': leak.get('Email')
+                }
+                secrets.append(secret)
+            except Exception as e:
+                print(f"Error parsing leak: {e}")
+                continue
+                
+        return secrets
 
     def _clone_repos(self, repositories, base_dir):
         for repo in repositories:

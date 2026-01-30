@@ -38,6 +38,29 @@ class Scan(db.Model):
     # Relationships
     results = db.relationship('Vulnerability', backref='scan', lazy=True, cascade="all, delete-orphan")
     quality_issues = db.relationship('QualityIssue', backref='scan', lazy=True, cascade="all, delete-orphan")
+    secrets = db.relationship('Secret', backref='scan', lazy=True, cascade="all, delete-orphan")
+
+class Secret(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    scan_id = db.Column(db.Integer, db.ForeignKey('scan.id'), nullable=False)
+    
+    # Core Data
+    title = db.Column(db.String(255)) # Description of what rule matched
+    match = db.Column(db.Text) # The actual secret (masked usually)
+    rule_id = db.Column(db.String(100))
+    
+    # Location
+    file_path = db.Column(db.String(255))
+    start_line = db.Column(db.Integer, nullable=True)
+    end_line = db.Column(db.Integer, nullable=True)
+    
+    # Git History Context
+    commit_sha = db.Column(db.String(40))
+    commit_message = db.Column(db.Text)
+    commit_date = db.Column(db.DateTime)
+    author = db.Column(db.String(100))
+    email = db.Column(db.String(100))
+
 
 class Vulnerability(db.Model):
     id = db.Column(db.Integer, primary_key=True)
