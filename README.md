@@ -1,12 +1,17 @@
 # Spectra - Security Audit Platform
 
+[![Documentation](https://img.shields.io/badge/docs-Spectra_Guide-blue?style=for-the-badge&logo=materialformkdocs)](https://assiadialeb.github.io/Spectra/)
+
 Spectra is an automated security audit platform designed to streamline the vulnerability assessment process for modern applications. By combining industry-leading scanning engines with AI-powered reporting, Spectra turns technical findings into actionable, professional security insights.
+
+📚 **[Read the Full Documentation](https://assiadialeb.github.io/Spectra/)**
 
 ## 🚀 Features
 
 *   **Multi-Engine Scanning**:
     *   **SAST (Static Application Security Testing)**: Powered by **Semgrep** for code quality and security flaws.
     *   **SCA & IaC (Supply Chain & Infrastructure)**: Powered by **Trivy** (Aqua Security) for dependencies and configuration auditing.
+    *   **DAST (Dynamic Application Security Testing)**: Powered by **Nuclei** (ProjectDiscovery) for runtime web vulnerability scanning.
 *   **AI-Enhanced Reporting**:
     *   Generates professional Word (.docx) reports.
     *   Includes Executive Summaries, Technical Details, and Action Plans.
@@ -111,7 +116,7 @@ Spectra is proudly built upon the incredible work of the Open Source security co
 We extend our deepest gratitude to the creators and maintainers of the technologies that power Spectra. Big thanks to them for their amazing work:
 
 *   **Python, Flask, SQLAlchemy, APScheduler**: For providing the robust backend foundation.
-*   **Ollama & Others LLM providersi**: For the cutting-edge intelligence APIs.
+*   **Ollama & Other LLM providers**: For the cutting-edge intelligence APIs.
 *   **python-docx**: For making complex report generation seamless.
 *   **MkDocs & Material for MkDocs**: For this beautiful and easy-to-use documentation system.
 *   **Bootstrap 5**: For the responsive and modern UI components.
