@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row pt-3 pb-2 mb-3 border-bottom">
+    <div class="col-md-12">
+        <h1 class="h2">New Audit: {{ project.name }}</h1>
+        <p class="text-muted">Select the type of security analysis you want to perform.</p>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+
+    <!-- Option A: Code Analysis (SAST) -->
+    <div class="col-md-5 mb-4">
+        <div class="card h-100 shadow-sm hover-card">
+            <div class="card-body text-center p-5">
+                <div class="mb-4 text-primary">
+                    <i class="bi bi-code-slash display-1"></i>
+                </div>
+                <h3 class="card-title">Static Code Analysis (SAST)</h3>
+                <p class="card-text text-muted mb-4">
+                    Analyze source code repositories for vulnerabilities, hardcoded secrets, and quality issues.
+                </p>
+                <div class="alert alert-light border text-start mb-4">
+                    <small>
+                        <i class="bi bi-check-circle-fill text-success me-2"></i><strong>Semgrep:</strong> Vuln &
+                        Quality<br>
+                        <i class="bi bi-check-circle-fill text-success me-2"></i><strong>Trivy:</strong> Dependencies &
+                        Config<br>
+                        <i class="bi bi-check-circle-fill text-success me-2"></i><strong>Gitleaks:</strong> Secrets
+                        Detection
+                    </small>
+                </div>
+
+                <form action="{{ url_for('web.run_scan', project_id=project.id) }}" method="POST">
+                    <input type="hidden" name="scan_type" value="SAST">
+
+                    <div class="form-check form-switch text-start d-inline-block mb-3">
+                        <input class="form-check-input" type="checkbox" id="include_secrets" name="include_secrets"
+                            checked>
+                        <label class="form-check-label" for="include_secrets">Include Secrets Scan (Slower)</label>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">Launch Code Audit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Option B: Web Analysis (DAST) -->
+    <div class="col-md-5 mb-4">
+        <div class="card h-100 shadow-sm hover-card">
+            <div class="card-body text-center p-5">
+                <div class="mb-4 text-info">
+                    <i class="bi bi-globe display-1"></i>
+                </div>
+                <h3 class="card-title">Dynamic Web Analysis (DAST)</h3>
+                <p class="card-text text-muted mb-4">
+                    Scan running web applications for common vulnerabilities (XSS, SQLi, Misconfigurations) using
+                    Nuclei.
+                </p>
+
+                <div class="alert alert-light border text-start mb-4">
+                    <small>
+                        <strong class="d-block mb-2">Targets Configured:</strong>
+                        {% if project.target_urls %}
+                        <ul class="mb-0 ps-3">
+                            {% for target in project.target_urls %}
+                            <li>{{ target.url }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <span class="text-danger"><i class="bi bi-exclamation-circle me-1"></i> No targets defined in
+                            settings.</span>
+                        {% endif %}
+                    </small>
+                </div>
+
+                <form action="{{ url_for('web.run_scan', project_id=project.id) }}" method="POST">
+                    <input type="hidden" name="scan_type" value="DAST">
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-info text-white btn-lg" {% if not project.target_urls
+                            %}disabled{% endif %}>
+                            Launch Web Audit
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .hover-card {
+        transition: transform 0.2s;
+    }
+
+    .hover-card:hover {
+        transform: translateY(-5px);
+        border-color: #0d6efd;
+    }
+</style>
+{% endblock %}

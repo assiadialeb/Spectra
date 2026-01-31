@@ -17,6 +17,7 @@
                 <tr>
                     <th>Date</th>
                     <th>Project</th>
+                    <th>Type</th>
                     <th>Status</th>
                     <th>Findings Summary</th>
                     <th>Action</th>
@@ -35,6 +36,17 @@
                             class="text-decoration-none fw-bold">
                             {{ scan.project.name }}
                         </a>
+                    </td>
+                    <td>
+                        {% if scan.scan_type == 'DAST' %}
+                        <span class="badge bg-info text-dark border">
+                            <i class="bi bi-globe me-1"></i>DAST
+                        </span>
+                        {% else %}
+                        <span class="badge bg-light text-dark border">
+                            <i class="bi bi-box-seam me-1"></i>SAST
+                        </span>
+                        {% endif %}
                     </td>
                     <td>
                         {% if scan.status == 'COMPLETED' %}

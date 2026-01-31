@@ -131,8 +131,28 @@ def _run_scan_worker(app, scan_id):
             return
 
         try:
-            engine = ScanEngine(scan.id)
-            vulnerabilities, quality_issues, secrets = engine.run(scan.project.repositories, include_secrets=scan.include_secrets)
+            # Execute Scan based on Type
+            scan_type = getattr(scan, 'scan_type', 'SAST')
+            
+            if scan_type == 'DAST':
+                print(f"[Scheduler] Starting DAST scan {scan.id} for project {scan.project.name}...")
+                from app.scanners.nuclei_engine import NucleiEngine
+                
+                # Check if there are targets
+                if not scan.project.target_urls:
+                    print(f"[Scheduler] No target URLs for DAST scan {scan.id}. Finishing.")
+                    vulnerabilities = []
+                else:
+                    nuclei_engine = NucleiEngine(scan.id)
+                    vulnerabilities = nuclei_engine.run(scan.project.target_urls)
+                
+                quality_issues = [] # No quality issues in DAST
+                secrets = [] # No secrets in DAST (unless Nuclei finds them as vulns)
+                
+            else:
+                # Default SAST
+                engine = ScanEngine(scan.id)
+                vulnerabilities, quality_issues, secrets = engine.run(scan.project.repositories, include_secrets=scan.include_secrets)
             
             # Save Results
             for vuln in vulnerabilities:
@@ -162,20 +182,24 @@ def _run_scan_worker(app, scan_id):
             else:
                 scan.security_grade = 'A'; scan.security_score = 100
                 
-            # Quality Score
-            quality_penalty = 0
-            for q in quality_issues:
-                if q.severity == 'HIGH': quality_penalty += 5
-                elif q.severity == 'MEDIUM': quality_penalty += 2
-                else: quality_penalty += 0.5
-            q_score = max(0, 100 - int(quality_penalty))
-            scan.quality_score = q_score
-            
-            if q_score >= 90: scan.quality_grade = 'A'
-            elif q_score >= 80: scan.quality_grade = 'B'
-            elif q_score >= 60: scan.quality_grade = 'C'
-            elif q_score >= 40: scan.quality_grade = 'D'
-            else: scan.quality_grade = 'F'
+            # Quality Score (Only relevant for SAST)
+            if scan_type == 'DAST':
+                scan.quality_score = 100
+                scan.quality_grade = 'A' # Default perfect quality for DAST as it's not applicable
+            else:
+                quality_penalty = 0
+                for q in quality_issues:
+                    if q.severity == 'HIGH': quality_penalty += 5
+                    elif q.severity == 'MEDIUM': quality_penalty += 2
+                    else: quality_penalty += 0.5
+                q_score = max(0, 100 - int(quality_penalty))
+                scan.quality_score = q_score
+                
+                if q_score >= 90: scan.quality_grade = 'A'
+                elif q_score >= 80: scan.quality_grade = 'B'
+                elif q_score >= 60: scan.quality_grade = 'C'
+                elif q_score >= 40: scan.quality_grade = 'D'
+                else: scan.quality_grade = 'F'
 
             scan.status = 'COMPLETED'
             db.session.commit()

@@ -22,6 +22,7 @@ class Project(db.Model):
     
     # Relationships
     repositories = db.relationship('Repository', backref='project', lazy=True, cascade="all, delete-orphan")
+    target_urls = db.relationship('TargetURL', backref='project', lazy=True, cascade="all, delete-orphan")
     scans = db.relationship('Scan', backref='project', lazy=True, cascade="all, delete-orphan")
 
 class Repository(db.Model):
@@ -29,6 +30,13 @@ class Repository(db.Model):
     project_id = db.Column(db.Integer, db.ForeignKey('project.id'), nullable=False)
     url = db.Column(db.String(255), nullable=False)
     name = db.Column(db.String(100), nullable=False) 
+
+class TargetURL(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id'), nullable=False)
+    url = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow) 
     
 class Scan(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -43,6 +51,7 @@ class Scan(db.Model):
     quality_score = db.Column(db.Integer, nullable=True) # 0-100
     
     # Configuration
+    scan_type = db.Column(db.String(10), default='SAST') # SAST, DAST
     include_secrets = db.Column(db.Boolean, default=True)
     
     # Relationships

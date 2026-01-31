@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from app.models import db, Project, Repository, Scan, Vulnerability, Secret
+from app.models import db, Project, Repository, TargetURL, Scan, Vulnerability, Secret
 from app.models_settings import Settings
 from app.scanners.scan_engine import ScanEngine
 from datetime import datetime
@@ -57,51 +57,73 @@ def project_detail(project_id):
     # We need chronological order for charts (Oldest -> Newest)
     scans = sorted(project.scans, key=lambda s: s.timestamp)
     
-    dates = []
-    vuln_critical = []
-    vuln_high = []
-    vuln_medium = []
-    secrets_count = []
-    quality_high = []
-    quality_medium = []
+    # Separate SAST and DAST scans
+    sast_scans = [s for s in scans if s.status == 'COMPLETED' and getattr(s, 'scan_type', 'SAST') != 'DAST']
+    dast_scans = [s for s in scans if s.status == 'COMPLETED' and getattr(s, 'scan_type', 'SAST') == 'DAST']
     
-    for scan in scans:
-        if scan.status != 'COMPLETED':
-            continue
-            
-        dates.append(scan.timestamp.strftime('%Y-%m-%d %H:%M'))
-        
-        # Vulns
-        vuln_critical.append(sum(1 for v in scan.results if v.severity == 'CRITICAL'))
-        vuln_high.append(sum(1 for v in scan.results if v.severity == 'HIGH'))
-        vuln_medium.append(sum(1 for v in scan.results if v.severity == 'MEDIUM'))
+    # --- SAST Chart Data ---
+    sast_dates = []
+    sast_crit = []
+    sast_high = []
+    sast_med = []
+    
+    sast_secrets = []
+    sast_q_high = []
+    sast_q_med = []
+    
+    for scan in sast_scans:
+        sast_dates.append(scan.timestamp.strftime('%Y-%m-%d %H:%M'))
+        sast_crit.append(sum(1 for v in scan.results if v.severity == 'CRITICAL'))
+        sast_high.append(sum(1 for v in scan.results if v.severity == 'HIGH'))
+        sast_med.append(sum(1 for v in scan.results if v.severity == 'MEDIUM'))
         
         # Secrets
-        secrets_count.append(len(scan.secrets))
+        sast_secrets.append(len(scan.secrets))
         
         # Quality
-        quality_high.append(sum(1 for q in scan.quality_issues if q.severity == 'HIGH' or q.severity == 'ERROR'))
-        quality_medium.append(sum(1 for q in scan.quality_issues if q.severity == 'MEDIUM' or q.severity == 'WARNING'))
-
-    chart_data = {
-        'dates': dates,
-        'vulns': {
-            'critical': vuln_critical,
-            'high': vuln_high,
-            'medium': vuln_medium
-        },
-        'secrets': secrets_count,
-        'quality': {
-            'high': quality_high,
-            'medium': quality_medium
-        }
+        sast_q_high.append(sum(1 for q in scan.quality_issues if q.severity == 'HIGH' or q.severity == 'ERROR'))
+        sast_q_med.append(sum(1 for q in scan.quality_issues if q.severity == 'MEDIUM' or q.severity == 'WARNING'))
+        
+    sast_chart_data = {
+        'dates': sast_dates,
+        'vulns': {'critical': sast_crit, 'high': sast_high, 'medium': sast_med},
+        'secrets': sast_secrets,
+        'quality': {'high': sast_q_high, 'medium': sast_q_med}
+    }
+    
+    # --- DAST Chart Data ---
+    dast_dates = []
+    dast_crit = []
+    dast_high = []
+    dast_med = []
+    
+    dast_secrets = []
+    dast_q_high = []
+    dast_q_med = []
+    
+    for scan in dast_scans:
+        dast_dates.append(scan.timestamp.strftime('%Y-%m-%d %H:%M'))
+        dast_crit.append(sum(1 for v in scan.results if v.severity == 'CRITICAL'))
+        dast_high.append(sum(1 for v in scan.results if v.severity == 'HIGH'))
+        dast_med.append(sum(1 for v in scan.results if v.severity == 'MEDIUM'))
+        
+        # DAST usually doesn't have secrets/quality in same way, but fill with 0s
+        dast_secrets.append(0)
+        dast_q_high.append(0)
+        dast_q_med.append(0)
+        
+    dast_chart_data = {
+        'dates': dast_dates,
+        'vulns': {'critical': dast_crit, 'high': dast_high, 'medium': dast_med},
+        'secrets': dast_secrets,
+        'quality': {'high': dast_q_high, 'medium': dast_q_med}
     }
     
     # Pagination for Scan History Table
     page = request.args.get('page', 1, type=int)
     scan_pagination = Scan.query.filter_by(project_id=project_id).order_by(Scan.timestamp.desc()).paginate(page=page, per_page=10, error_out=False)
     
-    return render_template('project_detail.html', project=project, chart_data=chart_data, scan_pagination=scan_pagination)
+    return render_template('project_detail.html', project=project, sast_chart_data=sast_chart_data, dast_chart_data=dast_chart_data, scan_pagination=scan_pagination)
 
 @web.route('/projects/<int:project_id>/settings')
 def project_settings(project_id):
@@ -188,25 +210,72 @@ def delete_repository(project_id, repo_id):
         
     return redirect(url_for('web.project_settings', project_id=project.id))
 
-@web.route('/projects/<int:project_id>/scan', methods=['POST'])
+@web.route('/projects/<int:project_id>/targets/add', methods=['POST'])
+def add_target_url(project_id):
+    project = Project.query.get_or_404(project_id)
+    url = request.form.get('url')
+    description = request.form.get('description')
+    
+    if url:
+        target = TargetURL(project_id=project.id, url=url, description=description)
+        db.session.add(target)
+        db.session.commit()
+        flash('DAST target URL added successfully.')
+    else:
+        flash('Target URL cannot be empty.', 'error')
+        
+    return redirect(url_for('web.project_settings', project_id=project.id))
+
+@web.route('/projects/<int:project_id>/targets/<int:target_id>/delete', methods=['POST'])
+def delete_target_url(project_id, target_id):
+    project = Project.query.get_or_404(project_id)
+    target = TargetURL.query.get_or_404(target_id)
+    
+    if target.project_id != project.id:
+        flash('Target does not belong to this project.', 'error')
+        return redirect(url_for('web.project_settings', project_id=project.id))
+        
+    try:
+        db.session.delete(target)
+        db.session.commit()
+        flash('DAST target deleted successfully.')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error deleting target.', 'error')
+        print(f"Delete Target Error: {e}")
+        
+    return redirect(url_for('web.project_settings', project_id=project.id))
+
+@web.route('/projects/<int:project_id>/scan', methods=['GET', 'POST'])
 def run_scan(project_id):
     project = Project.query.get_or_404(project_id)
     
-    # Get options from form
+    if request.method == 'GET':
+        return render_template('audit_selection.html', project=project)
+    
+    # POST: Start the scan
+    scan_type = request.form.get('scan_type', 'SAST')
     include_secrets = request.form.get('include_secrets') == 'on'
     
     # Create Scan Record
-    scan = Scan(project_id=project.id, status='RUNNING', include_secrets=include_secrets)
+    # For DAST, include_secrets is not really relevant as a user toggle, 
+    # but we can set it to False to be clean or keep default.
+    if scan_type == 'DAST':
+        include_secrets = False
+        
+    scan = Scan(
+        project_id=project.id, 
+        status='RUNNING', 
+        scan_type=scan_type,
+        include_secrets=include_secrets
+    )
     db.session.add(scan)
     db.session.commit()
     
-    # Render a progress/loading page that will trigger the actual scan logic (or do it synchronously here for V1 as requested)
-    # "Le scan est réalisé en tâche de fond en v2, mais pour la v1 il attends et voit une indication d'avancement"
-    
-    # For V1 synchronous "Simulation" or actual execution, we can do it here.
-    # But browsers timeout. If the user wants to see "Scan en cours...", we should probably stream response or use JS polling.
-    # However, "synchronous" might just mean "server blocks until done".
-    # Let's try to implement a simple "loading" view that does the scan then redirects.
+    # Render progress page which will trigger execution via JS/Meta refresh calling execute endpoint?
+    # Actually, the previous logic was: create scan -> render progress page -> progress page calls /execute via JS?
+    # Let's check scan_progress.html...
+    # Assuming scan_progress.html has JS to call /scans/<id>/execute
     
     return render_template('scan_progress.html', project=project, scan=scan)
 

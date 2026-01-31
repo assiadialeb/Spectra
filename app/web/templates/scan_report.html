@@ -10,43 +10,45 @@
             Completed: {{ scan.timestamp.strftime('%Y-%m-%d %H:%M') }}
         </p>
     </div>
-    <div class="btn-toolbar mb-2 mb-md-0">
-        <a href="{{ url_for('web.download_report', scan_id=scan.id) }}" class="btn btn-outline-primary me-2">
-            <i class="bi bi-file-word"></i> Export Word
-        </a>
-    </div>
 </div>
 
 <!-- HEALTH CARDS (V2) -->
 <div class="row mb-4">
     <!-- Security Grade -->
     <div class="col-md-6">
-        <div class="card h-100 border-{% if scan.security_grade == 'A' %}success{% elif scan.security_grade == 'B' %}primary{% elif scan.security_grade == 'C' %}warning{% else %}danger{% endif %} text-center">
+        <div
+            class="card h-100 border-{% if scan.security_grade == 'A' %}success{% elif scan.security_grade == 'B' %}primary{% elif scan.security_grade == 'C' %}warning{% else %}danger{% endif %} text-center">
             <div class="card-header bg-transparent">Security Grade</div>
             <div class="card-body">
-                <h1 class="display-1 fw-bold text-{% if scan.security_grade == 'A' %}success{% elif scan.security_grade == 'B' %}primary{% elif scan.security_grade == 'C' %}warning{% else %}danger{% endif %}">
+                <h1
+                    class="display-1 fw-bold text-{% if scan.security_grade == 'A' %}success{% elif scan.security_grade == 'B' %}primary{% elif scan.security_grade == 'C' %}warning{% else %}danger{% endif %}">
                     {{ scan.security_grade or 'N/A' }}
                 </h1>
                 <p class="text-muted">Score: {{ scan.security_score or 0 }}/100</p>
                 <div class="d-flex justify-content-center gap-2">
-                    <span class="badge bg-danger">Critical: {{ scan.results|selectattr('severity', 'equalto', 'CRITICAL')|list|length }}</span>
-                    <span class="badge bg-warning text-dark">High: {{ scan.results|selectattr('severity', 'equalto', 'HIGH')|list|length }}</span>
+                    <span class="badge bg-danger">Critical: {{ scan.results|selectattr('severity', 'equalto',
+                        'CRITICAL')|list|length }}</span>
+                    <span class="badge bg-warning text-dark">High: {{ scan.results|selectattr('severity', 'equalto',
+                        'HIGH')|list|length }}</span>
                 </div>
             </div>
         </div>
     </div>
     <!-- Quality Grade -->
     <div class="col-md-6">
-        <div class="card h-100 border-{% if scan.quality_grade == 'A' %}success{% elif scan.quality_grade == 'B' %}primary{% elif scan.quality_grade == 'C' %}warning{% else %}danger{% endif %} text-center">
+        <div
+            class="card h-100 border-{% if scan.quality_grade == 'A' %}success{% elif scan.quality_grade == 'B' %}primary{% elif scan.quality_grade == 'C' %}warning{% else %}danger{% endif %} text-center">
             <div class="card-header bg-transparent">Quality Grade</div>
             <div class="card-body">
-                <h1 class="display-1 fw-bold text-{% if scan.quality_grade == 'A' %}success{% elif scan.quality_grade == 'B' %}primary{% elif scan.quality_grade == 'C' %}warning{% else %}danger{% endif %}">
+                <h1
+                    class="display-1 fw-bold text-{% if scan.quality_grade == 'A' %}success{% elif scan.quality_grade == 'B' %}primary{% elif scan.quality_grade == 'C' %}warning{% else %}danger{% endif %}">
                     {{ scan.quality_grade or 'N/A' }}
                 </h1>
                 <p class="text-muted">Score: {{ scan.quality_score or 0 }}/100</p>
                 <div class="d-flex justify-content-center gap-2">
-                     <span class="badge bg-info">Issues: {{ scan.quality_issues|length }}</span>
-                     <span class="badge bg-secondary">Debt: {{ scan.quality_issues|sum(attribute='effort_minutes') }} min</span>
+                    <span class="badge bg-info">Issues: {{ scan.quality_issues|length }}</span>
+                    <span class="badge bg-secondary">Debt: {{ scan.quality_issues|sum(attribute='effort_minutes') }}
+                        min</span>
                 </div>
             </div>
         </div>
@@ -56,27 +58,44 @@
 <!-- TABS INTERFACE -->
 <ul class="nav nav-tabs mb-3" id="scanTabs" role="tablist">
     <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="security-tab" data-bs-toggle="tab" data-bs-target="#security" type="button" role="tab">
+        <button class="nav-link active" id="security-tab" data-bs-toggle="tab" data-bs-target="#security" type="button"
+            role="tab">
             <i class="bi bi-shield-lock-fill me-2"></i>Security Findings
         </button>
     </li>
     <li class="nav-item" role="presentation">
-        <button class="nav-link" id="secrets-tab" data-bs-toggle="tab" data-bs-target="#secrets" type="button" role="tab">
-            <i class="bi bi-key-fill me-2"></i>Secrets {% if secrets %}<span class="badge bg-danger ms-1">{{ secrets|length }}</span>{% endif %}
+        <button class="nav-link" id="secrets-tab" data-bs-toggle="tab" data-bs-target="#secrets" type="button"
+            role="tab">
+            <i class="bi bi-key-fill me-2"></i>Secrets {% if secrets %}<span class="badge bg-danger ms-1">{{
+                secrets|length }}</span>{% endif %}
         </button>
     </li>
     <li class="nav-item" role="presentation">
-        <button class="nav-link" id="quality-tab" data-bs-toggle="tab" data-bs-target="#quality" type="button" role="tab">
+        <button class="nav-link" id="quality-tab" data-bs-toggle="tab" data-bs-target="#quality" type="button"
+            role="tab">
             <i class="bi bi-code-square me-2"></i>Quality & Maintainability
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="targets-tab" data-bs-toggle="tab" data-bs-target="#targets" type="button"
+            role="tab">
+            <i class="bi bi-crosshair me-2"></i>Targets & Scope
         </button>
     </li>
 </ul>
 
 <div class="tab-content" id="scanTabsContent">
-    
+
     <!-- SECURITY TAB -->
     <div class="tab-pane fade show active" id="security" role="tabpanel">
         <div class="card border-top-0">
+            <!-- EXPORT ACTION BAR -->
+            <div class="card-body bg-light border-bottom py-2 text-end">
+                <a href="{{ url_for('web.download_report', scan_id=scan.id) }}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-file-word me-1"></i> Export Findings (Word)
+                </a>
+            </div>
+
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
@@ -109,14 +128,20 @@
                             </td>
                             <td><span class="badge bg-light text-dark border">{{ vuln.tool }}</span></td>
                             <td>
-                                {% if vuln.file_path %}<code>{{ vuln.file_path }}</code>{% if vuln.line_number %}:{{ vuln.line_number }}{% endif %}{% else %}N/A{% endif %}
+                                {% if vuln.file_path %}<code>{{ vuln.file_path }}</code>{% if vuln.line_number %}:{{
+                                vuln.line_number }}{% endif %}{% else %}N/A{% endif %}
                             </td>
                             <td>
-                                <button type="button" class="btn btn-sm btn-link" data-bs-toggle="popover" title="Fix" data-bs-content="{{ vuln.fix_recommendation }}">View Fix</button>
+                                <button type="button" class="btn btn-sm btn-link" data-bs-toggle="popover" title="Fix"
+                                    data-bs-content="{{ vuln.fix_recommendation }}">View Fix</button>
                             </td>
                         </tr>
                         {% else %}
-                        <tr><td colspan="5" class="text-center py-4"><p class="text-muted">No security vulnerabilities found.</p></td></tr>
+                        <tr>
+                            <td colspan="5" class="text-center py-4">
+                                <p class="text-muted">No security vulnerabilities found.</p>
+                            </td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -127,7 +152,7 @@
     <!-- SECRETS TAB -->
     <div class="tab-pane fade" id="secrets" role="tabpanel">
         <div class="card border-top-0">
-             <div class="table-responsive">
+            <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
@@ -143,7 +168,8 @@
                         <tr>
                             <td>
                                 {{ secret.commit_date.strftime('%Y-%m-%d') if secret.commit_date else 'N/A' }}<br>
-                                <span class="badge bg-light text-dark border font-monospace">{{ secret.commit_sha[:7] }}</span>
+                                <span class="badge bg-light text-dark border font-monospace">{{ secret.commit_sha[:7]
+                                    }}</span>
                             </td>
                             <td>
                                 <strong>{{ secret.title }}</strong><br>
@@ -156,13 +182,19 @@
                                 <code>{{ secret.file_path }}</code>:{{ secret.start_line }}
                             </td>
                             <td>
-                                <button type="button" class="btn btn-sm btn-link text-danger" data-bs-toggle="popover" title="Remove from History" data-bs-html="true" data-bs-content="To remove this secret from history:<br><code>git rebase -i {{ secret.commit_sha }}^</code><br>Then edit the commit to remove the secret.">
+                                <button type="button" class="btn btn-sm btn-link text-danger" data-bs-toggle="popover"
+                                    title="Remove from History" data-bs-html="true"
+                                    data-bs-content="To remove this secret from history:<br><code>git rebase -i {{ secret.commit_sha }}^</code><br>Then edit the commit to remove the secret.">
                                     <i class="bi bi-trash"></i> Fix
                                 </button>
                             </td>
                         </tr>
                         {% else %}
-                        <tr><td colspan="5" class="text-center py-4"><p class="text-muted">No secrets found.</p></td></tr>
+                        <tr>
+                            <td colspan="5" class="text-center py-4">
+                                <p class="text-muted">No secrets found.</p>
+                            </td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -173,7 +205,7 @@
     <!-- QUALITY TAB -->
     <div class="tab-pane fade" id="quality" role="tabpanel">
         <div class="card border-top-0">
-             <div class="table-responsive">
+            <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
@@ -191,7 +223,8 @@
                                 {% if issue.severity == 'HIGH' %}
                                 <span class="text-danger fw-bold"><i class="bi bi-bug-fill"></i> Bug</span>
                                 {% elif issue.severity == 'MEDIUM' %}
-                                <span class="text-warning fw-bold"><i class="bi bi-exclamation-triangle-fill"></i> Warning</span>
+                                <span class="text-warning fw-bold"><i class="bi bi-exclamation-triangle-fill"></i>
+                                    Warning</span>
                                 {% else %}
                                 <span class="text-info fw-bold"><i class="bi bi-info-circle-fill"></i> Info</span>
                                 {% endif %}
@@ -209,10 +242,57 @@
                             </td>
                         </tr>
                         {% else %}
-                        <tr><td colspan="5" class="text-center py-4"><p class="text-muted">No quality issues found.</p></td></tr>
+                        <tr>
+                            <td colspan="5" class="text-center py-4">
+                                <p class="text-muted">No quality issues found.</p>
+                            </td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TARGETS TAB -->
+    <div class="tab-pane fade" id="targets" role="tabpanel">
+        <div class="card border-top-0">
+            <div class="card-body">
+                {% if scan.scan_type == 'DAST' %}
+                <h5 class="card-title text-muted text-uppercase small mb-3">Target URLs Analyzed</h5>
+                {% if scan.project.target_urls %}
+                <ul class="list-group list-group-flush">
+                    {% for target in scan.project.target_urls %}
+                    <li class="list-group-item px-0">
+                        <a href="{{ target.url }}" target="_blank" class="text-decoration-none font-monospace fw-bold">
+                            <i class="bi bi-globe me-2 text-info"></i> {{ target.url }}
+                        </a>
+                        {% if target.description %}
+                        <br><small class="text-muted ms-4 ps-2">{{ target.description }}</small>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted">No specific targets recorded for this scan.</p>
+                {% endif %}
+                {% else %}
+                <h5 class="card-title text-muted text-uppercase small mb-3">Repositories Analyzed</h5>
+                {% if scan.project.repositories %}
+                <ul class="list-group list-group-flush">
+                    {% for repo in scan.project.repositories %}
+                    <li class="list-group-item px-0">
+                        <span class="font-monospace fw-bold"><i class="bi bi-git me-2 text-primary"></i> {{ repo.name
+                            }}</span>
+                        <a href="{{ repo.url }}" target="_blank" class="text-muted small ms-2"><i
+                                class="bi bi-box-arrow-up-right"></i> {{ repo.url }}</a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted">No repositories linked.</p>
+                {% endif %}
+                {% endif %}
             </div>
         </div>
     </div>
