@@ -44,6 +44,15 @@ def create_project():
                 repo = Repository(project_id=project.id, url=url, name=repo_name)
                 db.session.add(repo)
             db.session.commit()
+
+        # Add DAST Target URLs
+        target_urls_text = request.form.get('target_urls')
+        if target_urls_text:
+            target_urls = [line.strip() for line in target_urls_text.split('\n') if line.strip()]
+            for url in target_urls:
+                target = TargetURL(project_id=project.id, url=url)
+                db.session.add(target)
+            db.session.commit()
             
         return redirect(url_for('web.project_detail', project_id=project.id))
         
