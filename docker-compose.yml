@@ -10,7 +10,7 @@ services:
       
       # Persist Trivy Cache
       # Accelerates scans by keeping the vulnerability DB between restarts
-      - trivy-cache:/root/.cache
+      - trivy-cache:/home/spectra/.cache
       
     # Load environment variables from .env file
     env_file:
