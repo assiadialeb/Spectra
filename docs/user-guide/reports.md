@@ -16,6 +16,7 @@ At the top of the report, you will find key performance indicators (KPIs):
     *   **C-B**: Medium severity issues or technical debt.
     *   **A**: No significant vulnerabilities found.
 *   **Vulnerability Counters**: Quick statistics on Critical, High, and Medium findings.
+*   **Global History**: Access the **History** tab in the main sidebar to view a chronological timeline of *all* scans across all projects. This is useful for auditing the overall activity of the platform.
 
 ### Detailed Findings Tabs
 
