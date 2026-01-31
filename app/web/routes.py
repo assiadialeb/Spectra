@@ -214,99 +214,16 @@ def run_scan(project_id):
 def execute_scan(scan_id):
     scan = Scan.query.get_or_404(scan_id)
     
-    # Run scan in a separate thread to avoid blocking the request
-    # We pass the application context to the thread so it can access the DB
+    # Delegate execution to the scheduler module which handles context better
+    from app.scheduler import run_scan_now
     from flask import current_app
     app_real = current_app._get_current_object()
     
-    thread = threading.Thread(target=_perform_scan, args=(app_real, scan_id))
-    thread.start()
+    run_scan_now(app_real, scan_id)
     
     return "STARTED"
 
-def _perform_scan(app, scan_id):
-    """
-    Background worker function for scanning.
-    """
-    with app.app_context():
-        scan = Scan.query.get(scan_id)
-        if not scan:
-            return
 
-        try:
-            # Initialize Engine
-            engine = ScanEngine(scan.id)
-            
-            # Run Scan
-            vulnerabilities, quality_issues, secrets = engine.run(scan.project.repositories, include_secrets=scan.include_secrets)
-            
-            # Save Results
-            for vuln in vulnerabilities:
-                db.session.add(vuln)
-            
-            for issue in quality_issues:
-                db.session.add(issue)
-                
-            for secret_data in secrets:
-                secret = Secret(scan_id=scan.id, **secret_data)
-                db.session.add(secret)
-
-            # --- CALCULATE GRADES ---
-            
-            # 1. Security Score/Grade
-            critical_count = sum(1 for v in vulnerabilities if v.severity == 'CRITICAL')
-            high_count = sum(1 for v in vulnerabilities if v.severity == 'HIGH') + len(secrets)
-            medium_count = sum(1 for v in vulnerabilities if v.severity == 'MEDIUM')
-            
-            if critical_count > 0:
-                scan.security_grade = 'F'
-                scan.security_score = 40
-            elif high_count > 0:
-                scan.security_grade = 'D'
-                scan.security_score = 55
-            elif medium_count > 5:
-                scan.security_grade = 'C'
-                scan.security_score = 70
-            elif medium_count > 0:
-                scan.security_grade = 'B'
-                scan.security_score = 85
-            else:
-                scan.security_grade = 'A'
-                scan.security_score = 100
-                
-            # 2. Quality Score/Grade
-            # Penalty based model
-            # High severity quality issue (Bug/Error) = -5 pts
-            # Medium (Warning) = -2 pts
-            # Low (Info) = -0.5 (rounded)
-            
-            quality_penalty = 0
-            for q in quality_issues:
-                if q.severity == 'HIGH':
-                    quality_penalty += 5
-                elif q.severity == 'MEDIUM':
-                    quality_penalty += 2
-                else:
-                    quality_penalty += 0.5
-                    
-            # Normalize score 0-100
-            q_score = max(0, 100 - int(quality_penalty))
-            scan.quality_score = q_score
-            
-            if q_score >= 90: scan.quality_grade = 'A'
-            elif q_score >= 80: scan.quality_grade = 'B'
-            elif q_score >= 60: scan.quality_grade = 'C'
-            elif q_score >= 40: scan.quality_grade = 'D'
-            else: scan.quality_grade = 'F'
-
-            scan.status = 'COMPLETED'
-            db.session.commit()
-            print(f"Scan {scan_id} completed successfully.")
-            
-        except Exception as e:
-            print(f"Scan Execution Failed: {e}")
-            scan.status = 'FAILED'
-            db.session.commit()
 
 @web.route('/api/scans/<int:scan_id>/status')
 def check_scan_status(scan_id):

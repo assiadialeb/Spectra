@@ -93,6 +93,24 @@ def trigger_scheduled_scan(app, project):
     thread = threading.Thread(target=_run_scan_worker, args=(app, scan.id))
     thread.start()
 
+def run_scan_now(app, scan_id):
+    """
+    Manually triggers a scan immediately using the scheduler's infrastructure (worker).
+    Used by the web route to ensure robust execution.
+    We launch it as an APScheduler One-time job or just reusing the worker logic in a thread?
+    Using APScheduler add_job allows it to persist better if configured with a job store, 
+    but for now we are in-memory.
+    Ideally, we just add a job to run 'now'.
+    """
+    scheduler.add_job(
+        id=f'manual_scan_{scan_id}',
+        func=_run_scan_worker,
+        trigger='date',
+        run_date=datetime.now(),
+        args=[app, scan_id]
+    )
+    print(f"Manual scan {scan_id} scheduled for immediate execution.")
+
 def _run_scan_worker(app, scan_id):
     """
     Worker similar to routes._perform_scan but for scheduler.
