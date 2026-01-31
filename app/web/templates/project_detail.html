@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% from "_macros.html" import render_pagination %}
+
 
 {% block content %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
@@ -148,7 +150,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for scan in project.scans|sort(attribute='timestamp', reverse=True) %}
+                {% for scan in scan_pagination.items %}
                 <tr>
                     <td>#{{ scan.id }}</td>
                     <td>{{ scan.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
@@ -201,6 +203,9 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+    <div class="card-footer bg-white">
+        {{ render_pagination(scan_pagination, 'web.project_detail', project_id=project.id) }}
     </div>
 </div>
 

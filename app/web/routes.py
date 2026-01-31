@@ -97,7 +97,11 @@ def project_detail(project_id):
         }
     }
     
-    return render_template('project_detail.html', project=project, chart_data=chart_data)
+    # Pagination for Scan History Table
+    page = request.args.get('page', 1, type=int)
+    scan_pagination = Scan.query.filter_by(project_id=project_id).order_by(Scan.timestamp.desc()).paginate(page=page, per_page=10, error_out=False)
+    
+    return render_template('project_detail.html', project=project, chart_data=chart_data, scan_pagination=scan_pagination)
 
 @web.route('/projects/<int:project_id>/settings')
 def project_settings(project_id):
@@ -386,6 +390,7 @@ def settings():
 
 @web.route('/history')
 def history():
-    # Limit to last 50 scans for performance
-    scans = Scan.query.order_by(Scan.timestamp.desc()).limit(50).all()
-    return render_template('history.html', scans=scans)
+    page = request.args.get('page', 1, type=int)
+    # Paginate results, 20 per page
+    pagination = Scan.query.order_by(Scan.timestamp.desc()).paginate(page=page, per_page=20, error_out=False)
+    return render_template('history.html', pagination=pagination)
