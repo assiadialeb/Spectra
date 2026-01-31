@@ -36,6 +36,7 @@ nav:
   - Home: index.md
   - Installation Guide: user-guide/installation.md
   - User Guide:
+    - Initial Configuration: user-guide/configuration.md
     - Creating Projects: user-guide/projects.md
     - Running Scans: user-guide/scanning.md
     - Reports & Exports: user-guide/reports.md
