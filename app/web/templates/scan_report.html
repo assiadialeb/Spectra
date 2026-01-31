@@ -7,7 +7,8 @@
         <p class="text-muted">
             Project: <a href="{{ url_for('web.project_detail', project_id=scan.project.id) }}">{{ scan.project.name
                 }}</a> |
-            Completed: {{ scan.timestamp.strftime('%Y-%m-%d %H:%M') }}
+            Completed: {{ scan.timestamp.strftime('%Y-%m-%d %H:%M') }} |
+            Type: <span class="badge bg-secondary">{{ scan.scan_type or 'SAST' }}</span>
         </p>
     </div>
 </div>
@@ -56,13 +57,23 @@
 </div>
 
 <!-- TABS INTERFACE -->
-<ul class="nav nav-tabs mb-3" id="scanTabs" role="tablist">
+<ul class="nav nav-tabs mb-0" id="scanTabs" role="tablist">
+    <!-- SAST TAB (ALWAYS DEFAULT) -->
     <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="security-tab" data-bs-toggle="tab" data-bs-target="#security" type="button"
+        <button class="nav-link active" id="sast-tab" data-bs-toggle="tab" data-bs-target="#sast" type="button"
             role="tab">
-            <i class="bi bi-shield-lock-fill me-2"></i>Security Findings
+            <i class="bi bi-code-slash me-2"></i>SAST
         </button>
     </li>
+
+    <!-- DAST TAB -->
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="dast-tab" data-bs-toggle="tab" data-bs-target="#dast" type="button" role="tab">
+            <i class="bi bi-globe me-2"></i>DAST
+        </button>
+    </li>
+
+    <!-- SECRETS TAB -->
     <li class="nav-item" role="presentation">
         <button class="nav-link" id="secrets-tab" data-bs-toggle="tab" data-bs-target="#secrets" type="button"
             role="tab">
@@ -70,34 +81,33 @@
                 secrets|length }}</span>{% endif %}
         </button>
     </li>
+
+    <!-- QUALITY TAB -->
     <li class="nav-item" role="presentation">
         <button class="nav-link" id="quality-tab" data-bs-toggle="tab" data-bs-target="#quality" type="button"
             role="tab">
-            <i class="bi bi-code-square me-2"></i>Quality & Maintainability
-        </button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="targets-tab" data-bs-toggle="tab" data-bs-target="#targets" type="button"
-            role="tab">
-            <i class="bi bi-crosshair me-2"></i>Targets & Scope
+            <i class="bi bi-code-square me-2"></i>Quality
         </button>
     </li>
 </ul>
 
 <div class="tab-content" id="scanTabsContent">
 
-    <!-- SECURITY TAB -->
-    <div class="tab-pane fade show active" id="security" role="tabpanel">
-        <div class="card border-top-0">
-            <!-- EXPORT ACTION BAR -->
-            <div class="card-body bg-light border-bottom py-2 text-end">
-                <a href="{{ url_for('web.download_report', scan_id=scan.id) }}" class="btn btn-sm btn-outline-primary">
-                    <i class="bi bi-file-word me-1"></i> Export Findings (Word)
-                </a>
+    <!-- SAST TAB CONTENT -->
+    <div class="tab-pane fade show active" id="sast" role="tabpanel">
+        <div class="card border-top-0 rounded-0 rounded-bottom">
+            <!-- HEADER WRAPPER with BUTTON RIGHT ALIGNED -->
+            <div class="card-body py-2">
+                <div class="d-flex justify-content-end">
+                    <a href="{{ url_for('web.download_report', scan_id=scan.id) }}"
+                        class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-file-word me-1"></i> Export Report
+                    </a>
+                </div>
             </div>
 
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+                <table class="table table-hover align-middle mb-0 border-top">
                     <thead class="table-light">
                         <tr>
                             <th style="width: 100px;">Severity</th>
@@ -108,7 +118,8 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for vuln in results %}
+                        <!-- Filter for SAST tools (not nuclei) -->
+                        {% for vuln in results if vuln.tool != 'nuclei' %}
                         <tr>
                             <td>
                                 {% if vuln.severity == 'CRITICAL' %}
@@ -139,7 +150,77 @@
                         {% else %}
                         <tr>
                             <td colspan="5" class="text-center py-4">
-                                <p class="text-muted">No security vulnerabilities found.</p>
+                                <p class="text-muted">No SAST Analysis findings found.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Scope Section for SAST (Bottom) -->
+            {% if scan.scan_type != 'DAST' %}
+            <div class="card-footer bg-light text-muted small border-top">
+                <strong>Scope:</strong>
+                {% for repo in scan.project.repositories %}
+                <span class="me-2"><i class="bi bi-git"></i> {{ repo.name }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- DAST TAB CONTENT -->
+    <div class="tab-pane fade" id="dast" role="tabpanel">
+        <div class="card border-top-0 rounded-0 rounded-bottom mb-3">
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 100px;">Severity</th>
+                            <th>ID / Title</th>
+                            <th>Tool</th>
+                            <th>URL / Endpoint</th>
+                            <th>Remediation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Filter for DAST tools (nuclei) -->
+                        {% for vuln in results if vuln.tool == 'nuclei' %}
+                        <tr>
+                            <td>
+                                {% if vuln.severity == 'CRITICAL' %}
+                                <span class="badge w-100 bg-danger">CRITICAL</span>
+                                {% elif vuln.severity == 'HIGH' %}
+                                <span class="badge w-100 bg-warning text-dark">HIGH</span>
+                                {% elif vuln.severity == 'MEDIUM' %}
+                                <span class="badge w-100 bg-info text-dark">MEDIUM</span>
+                                {% else %}
+                                <span class="badge w-100 bg-secondary">{{ vuln.severity }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong>{{ vuln.vuln_id }}</strong><br>
+                                {{ vuln.title }}
+                                <div class="small text-muted mt-1">CWE: {{ vuln.owasp_category }}</div>
+                            </td>
+                            <td><span class="badge bg-info text-dark border">{{ vuln.tool }}</span></td>
+                            <td>
+                                <a href="{{ vuln.file_path }}" target="_blank" class="text-decoration-none">
+                                    <code>{{ vuln.file_path|truncate(50, True) }}</code> <i
+                                        class="bi bi-box-arrow-up-right small"></i>
+                                </a>
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-link" data-bs-toggle="popover" title="Fix"
+                                    data-bs-content="{{ vuln.fix_recommendation }}">View Fix</button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4">
+                                <p class="text-muted">No DAST findings found.</p>
                             </td>
                         </tr>
                         {% endfor %}
@@ -147,11 +228,36 @@
                 </table>
             </div>
         </div>
+
+        <!-- DAST Scope / Targets List -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <h6 class="mb-0 text-muted text-uppercase small"><i class="bi bi-crosshair me-2"></i>Target Scope</h6>
+            </div>
+            <div class="card-body">
+                {% if scan.project.target_urls %}
+                <ul class="list-group list-group-flush">
+                    {% for target in scan.project.target_urls %}
+                    <li class="list-group-item px-0">
+                        <a href="{{ target.url }}" target="_blank" class="text-decoration-none font-monospace fw-bold">
+                            <i class="bi bi-globe me-2 text-info"></i> {{ target.url }}
+                        </a>
+                        {% if target.description %}
+                        <small class="text-muted ms-3">- {{ target.description }}</small>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted mb-0">No specific targets recorded for this scan.</p>
+                {% endif %}
+            </div>
+        </div>
     </div>
 
-    <!-- SECRETS TAB -->
+    <!-- SECRETS TAB CONTENT -->
     <div class="tab-pane fade" id="secrets" role="tabpanel">
-        <div class="card border-top-0">
+        <div class="card border-top-0 rounded-0 rounded-bottom">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
@@ -202,9 +308,9 @@
         </div>
     </div>
 
-    <!-- QUALITY TAB -->
+    <!-- QUALITY TAB CONTENT -->
     <div class="tab-pane fade" id="quality" role="tabpanel">
-        <div class="card border-top-0">
+        <div class="card border-top-0 rounded-0 rounded-bottom">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
@@ -250,49 +356,6 @@
                         {% endfor %}
                     </tbody>
                 </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- TARGETS TAB -->
-    <div class="tab-pane fade" id="targets" role="tabpanel">
-        <div class="card border-top-0">
-            <div class="card-body">
-                {% if scan.scan_type == 'DAST' %}
-                <h5 class="card-title text-muted text-uppercase small mb-3">Target URLs Analyzed</h5>
-                {% if scan.project.target_urls %}
-                <ul class="list-group list-group-flush">
-                    {% for target in scan.project.target_urls %}
-                    <li class="list-group-item px-0">
-                        <a href="{{ target.url }}" target="_blank" class="text-decoration-none font-monospace fw-bold">
-                            <i class="bi bi-globe me-2 text-info"></i> {{ target.url }}
-                        </a>
-                        {% if target.description %}
-                        <br><small class="text-muted ms-4 ps-2">{{ target.description }}</small>
-                        {% endif %}
-                    </li>
-                    {% endfor %}
-                </ul>
-                {% else %}
-                <p class="text-muted">No specific targets recorded for this scan.</p>
-                {% endif %}
-                {% else %}
-                <h5 class="card-title text-muted text-uppercase small mb-3">Repositories Analyzed</h5>
-                {% if scan.project.repositories %}
-                <ul class="list-group list-group-flush">
-                    {% for repo in scan.project.repositories %}
-                    <li class="list-group-item px-0">
-                        <span class="font-monospace fw-bold"><i class="bi bi-git me-2 text-primary"></i> {{ repo.name
-                            }}</span>
-                        <a href="{{ repo.url }}" target="_blank" class="text-muted small ms-2"><i
-                                class="bi bi-box-arrow-up-right"></i> {{ repo.url }}</a>
-                    </li>
-                    {% endfor %}
-                </ul>
-                {% else %}
-                <p class="text-muted">No repositories linked.</p>
-                {% endif %}
-                {% endif %}
             </div>
         </div>
     </div>

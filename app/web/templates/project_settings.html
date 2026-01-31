@@ -51,6 +51,11 @@
                         <label class="form-check-label" for="schedule_enabled">Enable Automatic Scanning</label>
                     </div>
 
+                    <div class="alert alert-info py-2 mb-3">
+                        <small><i class="bi bi-info-circle me-1"></i> Note: Currently, only code repositories (SAST) are
+                            automatically scanned. Web application scans (DAST) must be triggered manually.</small>
+                    </div>
+
                     <div id="schedule-options" class="row g-3 {% if not project.schedule_enabled %}d-none{% endif %}">
                         <div class="col-md-4">
                             <label class="form-label">Frequency</label>
