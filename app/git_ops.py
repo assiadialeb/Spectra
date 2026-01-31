@@ -18,9 +18,21 @@ def clone_repository(repo_url, target_dir):
         pat = current_app.config.get('GITHUB_PAT')
     
     final_url = repo_url
-    if pat and 'github.com' in repo_url and 'https://' in repo_url:
-        # Inject PAT into URL: https://PAT@github.com/org/repo.git
-        final_url = repo_url.replace('https://', f'https://{pat}@')
+    final_url = repo_url
+    if pat and 'github.com' in repo_url:
+        from urllib.parse import urlsplit, urlunsplit
+        
+        # Safe URL reconstruction
+        try:
+            parts = urlsplit(repo_url)
+            if parts.scheme in ['http', 'https']:
+                # Rebuild netloc with PAT: pat@hostname
+                # parts.hostname handles cleaning up any existing auth info
+                new_netloc = f"{pat}@{parts.hostname}"
+                final_url = urlunsplit((parts.scheme, new_netloc, parts.path, parts.query, parts.fragment))
+        except Exception as e:
+            print(f"Warning: Failed to parse repository URL: {e}")
+            final_url = repo_url # Fallback
         
     try:
         # Ensure target dir does not exist or clean it? 
