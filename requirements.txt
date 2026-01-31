@@ -10,3 +10,4 @@ google-generativeai
 Flask-APScheduler
 mkdocs
 mkdocs-material
+mkdocs-glightbox

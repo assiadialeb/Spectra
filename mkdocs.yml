@@ -35,9 +35,12 @@ markdown_extensions:
   - pymdownx.details
   - pymdownx.superfences
   - attr_list
+  - md_in_html
+  - pymdownx.blocks.caption
 
 plugins:
   - search
+  - glightbox
 
 nav:
   - Home: index.md

@@ -8,6 +8,12 @@ Once a project is established, you can refine its scope and automate your securi
     > **Note**: The project name is fixed upon creation to maintain data integrity across scan histories.
 *   **Description**: You can update the project's scope or context at any time to reflect changes in the audit objectives.
 
+<figure markdown="span">
+![New Scan](../assets/project-settings.png){ width="400" }
+<figcaption>Project Settings</figcaption>
+</figure>
+
+
 ## 2. Assets Management (SAST & DAST)
 
 Spectra allows you to dynamically scale the scope of your project:

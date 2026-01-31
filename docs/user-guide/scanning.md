@@ -6,7 +6,10 @@ Once your project is created, you will be redirected to the Project Dashboard. F
 
 To start an analysis, click the **Run New Audit** button at the top right of your project page. A modal will appear, offering two distinct types of security analysis:
 
-![Scan Selection Modal](https://placehold.co/800x400?text=Scan+Selection+Modal)
+<figure markdown="span">
+![New Scan](../assets/run-scanner.png){ width="400" }
+<figcaption>Run new scan</figcaption>
+</figure>
 
 ### A. Static Code Analysis (SAST)
 
