@@ -13,6 +13,7 @@ To start an analysis, click the **Run New Audit** button at the top right of you
 This module inspects your source code repositories without executing them. It combines multiple engines:
 
 *   **Semgrep**: Checks for vulnerability patterns (OWASP Top 10) and code quality issues.
+*   **Smart Language Detection**: Spectra automatically identifies your project's languages (Python, JS, Go, Rust, etc.) and applies relevant security rules architectures without manual configuration.
 *   **Trivy**: Identifies vulnerable dependencies (SCA) and infrastructure misconfigurations (IaC).
 *   **Gitleaks** (Secrets Detection): Scans for hardcoded credentials and API keys.
 
