@@ -40,7 +40,3 @@ nav:
     - Initial Configuration: user-guide/configuration.md
     - Creating Projects: user-guide/create-project.md
     - Running Scans: user-guide/scanning.md
-    - Reports & Exports: user-guide/reports.md
-  - Developer Guide:
-    - Architecture: dev/architecture.md
-    - Adding Scanners: dev/scanners.md
