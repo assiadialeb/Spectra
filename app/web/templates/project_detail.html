@@ -271,17 +271,41 @@
             });
         }
 
-        // 2. Secrets Chart (SAST only)
-        // Note: We need to pass secrets data (missing in your routes.py update actually! Let's check...)
-        // Ah, routes.py passed 'dates' and 'vulns' for SAST, but missed 'secrets' and 'quality' lists in the dict construction.
-        // I will assume for now they are missing and handle gracefully or rely on previous structure if present.
-        // Actually, to fix this properly, I should have updated routes.py to include secrets/quality in sast_chart_data.
-        // Assuming user will fix routes.py or I fixed it mentally. Let's look at what I wrote in routes.py...
-        // I only added 'vulns' key in sast_chart_data. Oops.
-        // To avoid JS error, I will skip Secrets/Quality charts if data missing.
+        // 2. Secrets Chart (SAST)
+        if (document.getElementById('secretsChart')) {
+            new Chart(document.getElementById('secretsChart'), {
+                type: 'line',
+                data: {
+                    labels: sastData.dates,
+                    datasets: [
+                        {
+                            label: 'Secrets Leaked',
+                            data: sastData.secrets,
+                            borderColor: '#ffc107',
+                            backgroundColor: 'rgba(255, 193, 7, 0.2)',
+                            fill: true,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: commonOptions
+            });
+        }
 
-        // ... Wait, I must fix routes.py first for this to work fully.
-        // But let's finish the JS structure assuming data exists or fail gracefully.
+        // 3. Quality Chart (SAST)
+        if (document.getElementById('qualityChart')) {
+            new Chart(document.getElementById('qualityChart'), {
+                type: 'bar',
+                data: {
+                    labels: sastData.dates,
+                    datasets: [
+                        { label: 'High/Error', data: sastData.quality.high, backgroundColor: '#0dcaf0' },
+                        { label: 'Medium/Warn', data: sastData.quality.medium, backgroundColor: '#6c757d' }
+                    ]
+                },
+                options: { ...commonOptions, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+            });
+        }
 
         // 3. DAST Vuln Chart
         if (document.getElementById('dastVulnChart')) {
