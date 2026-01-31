@@ -8,3 +8,5 @@ semgrep
 openai
 google-generativeai
 Flask-APScheduler
+mkdocs
+mkdocs-material

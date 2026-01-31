@@ -1,0 +1,44 @@
+site_name: Spectra
+site_description: Advanced Security Audit Platform combining SAST and DAST analysis.
+site_author: Aissa
+site_url: https://github.com/assiadialeb/Spectra
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - search.highlight
+    - search.share
+    - content.code.copy
+  palette:
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Installation Guide: user-guide/installation.md
+  - User Guide:
+    - Creating Projects: user-guide/projects.md
+    - Running Scans: user-guide/scanning.md
+    - Reports & Exports: user-guide/reports.md
+  - Developer Guide:
+    - Architecture: dev/architecture.md
+    - Adding Scanners: dev/scanners.md
