@@ -34,7 +34,7 @@ Spectra is proudly built upon the incredible work of the Open Source security co
 We extend our deepest gratitude to the creators and maintainers of the technologies that power Spectra. Big thanks to them for their amazing work:
 
 *   **Python, Flask, SQLAlchemy, APScheduler**: For providing the robust backend foundation.
-*   **OpenAI & Google Gemini**: For the cutting-edge intelligence APIs.
+*   **Ollama & Others LLM providersi**: For the cutting-edge intelligence APIs.
 *   **python-docx**: For making complex report generation seamless.
 *   **MkDocs & Material for MkDocs**: For this beautiful and easy-to-use documentation system.
 *   **Bootstrap 5**: For the responsive and modern UI components.
