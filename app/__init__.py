@@ -21,6 +21,10 @@ def create_app():
     # Init DB
     db.init_app(app)
     
+    # Init Scheduler
+    from app.scheduler import init_scheduler
+    init_scheduler(app)
+    
     # Register Blueprints
     app.register_blueprint(web)
     

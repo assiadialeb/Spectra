@@ -7,3 +7,4 @@ requests
 semgrep
 openai
 google-generativeai
+Flask-APScheduler

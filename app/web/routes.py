@@ -134,6 +134,24 @@ def update_project_description(project_id):
         
     return redirect(url_for('web.project_settings', project_id=project.id))
 
+@web.route('/projects/<int:project_id>/schedule', methods=['POST'])
+def update_project_schedule(project_id):
+    project = Project.query.get_or_404(project_id)
+    
+    # Checkbox logic: if present = 'on' (True), if missing = None (False)
+    schedule_enabled = request.form.get('schedule_enabled') == 'on'
+    
+    project.schedule_enabled = schedule_enabled
+    if schedule_enabled:
+        project.schedule_frequency = request.form.get('frequency', 'daily')
+        project.schedule_time = request.form.get('time', '00:00') 
+        project.schedule_day = request.form.get('day')
+    
+    db.session.commit()
+    flash('Scan schedule updated.')
+    
+    return redirect(url_for('web.project_settings', project_id=project.id))
+
 @web.route('/projects/<int:project_id>/repositories/add', methods=['POST'])
 def add_repository(project_id):
     project = Project.query.get_or_404(project_id)

@@ -12,6 +12,13 @@ class Project(db.Model):
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Automatic Scheduling
+    schedule_enabled = db.Column(db.Boolean, default=False)
+    schedule_frequency = db.Column(db.String(20), default='daily') # 'daily', 'weekly'
+    schedule_time = db.Column(db.String(5), default='00:00') # 'HH:MM'
+    schedule_day = db.Column(db.String(10), nullable=True) # 'monday', etc. (for weekly)
+    last_scheduled_scan = db.Column(db.DateTime, nullable=True)
     
     # Relationships
     repositories = db.relationship('Repository', backref='project', lazy=True, cascade="all, delete-orphan")
