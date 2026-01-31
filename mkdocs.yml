@@ -39,4 +39,5 @@ nav:
   - User Guide:
     - Initial Configuration: user-guide/configuration.md
     - Creating Projects: user-guide/create-project.md
+    - Project Settings: user-guide/project-settings.md
     - Running Scans: user-guide/scanning.md
