@@ -112,7 +112,7 @@ class ScanEngine:
         self.trivy_parser = TrivyParser()
         self.semgrep_parser = SemgrepParser()
 
-    def run(self, repositories):
+    def run(self, repositories, include_secrets=True):
         """
         Orchestrates the scan process:
         1. Create temp workspace
@@ -123,6 +123,7 @@ class ScanEngine:
         """
         all_vulnerabilities = []
         all_quality = []
+        all_secrets = [] # Default empty
         
         # Create unique temp dir for this scan
         scan_dir = tempfile.mkdtemp(prefix=f"spectra_scan_{self.scan_id}_")
@@ -146,10 +147,13 @@ class ScanEngine:
             all_vulnerabilities.extend(semgrep_vulns)
             all_quality.extend(semgrep_quality)
             
-            # 4. Run Gitleaks
-            print(f"[Scan {self.scan_id}] Running Gitleaks...")
-            gitleaks_results = self._run_gitleaks(scan_dir)
-            all_secrets = self._parse_gitleaks(gitleaks_results)
+            # 4. Run Gitleaks (If enabled)
+            if include_secrets:
+                print(f"[Scan {self.scan_id}] Running Gitleaks...")
+                gitleaks_results = self._run_gitleaks(scan_dir)
+                all_secrets = self._parse_gitleaks(gitleaks_results)
+            else:
+                print(f"[Scan {self.scan_id}] Skipping Gitleaks (disabled)")
             
         except Exception as e:
             print(f"[Scan {self.scan_id}] Error: {e}")

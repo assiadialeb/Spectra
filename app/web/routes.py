@@ -3,7 +3,10 @@ from app.models import db, Project, Repository, Scan, Vulnerability, Secret
 from app.models_settings import Settings
 from app.scanners.scan_engine import ScanEngine
 from datetime import datetime
-import subprocess # Placeholder for scanner integration
+from app.scanners.scan_engine import ScanEngine
+from datetime import datetime
+import threading
+import sys
 # In real implem, we would import ScanEngine
 
 web = Blueprint('web', __name__)
@@ -49,7 +52,57 @@ def create_project():
 @web.route('/projects/<int:project_id>')
 def project_detail(project_id):
     project = Project.query.get_or_404(project_id)
-    return render_template('project_detail.html', project=project)
+    
+    # Prepare Data for Dashboard Charts
+    # We need chronological order for charts (Oldest -> Newest)
+    scans = sorted(project.scans, key=lambda s: s.timestamp)
+    
+    dates = []
+    vuln_critical = []
+    vuln_high = []
+    vuln_medium = []
+    secrets_count = []
+    quality_high = []
+    quality_medium = []
+    
+    for scan in scans:
+        if scan.status != 'COMPLETED':
+            continue
+            
+        dates.append(scan.timestamp.strftime('%Y-%m-%d %H:%M'))
+        
+        # Vulns
+        vuln_critical.append(sum(1 for v in scan.results if v.severity == 'CRITICAL'))
+        vuln_high.append(sum(1 for v in scan.results if v.severity == 'HIGH'))
+        vuln_medium.append(sum(1 for v in scan.results if v.severity == 'MEDIUM'))
+        
+        # Secrets
+        secrets_count.append(len(scan.secrets))
+        
+        # Quality
+        quality_high.append(sum(1 for q in scan.quality_issues if q.severity == 'HIGH' or q.severity == 'ERROR'))
+        quality_medium.append(sum(1 for q in scan.quality_issues if q.severity == 'MEDIUM' or q.severity == 'WARNING'))
+
+    chart_data = {
+        'dates': dates,
+        'vulns': {
+            'critical': vuln_critical,
+            'high': vuln_high,
+            'medium': vuln_medium
+        },
+        'secrets': secrets_count,
+        'quality': {
+            'high': quality_high,
+            'medium': quality_medium
+        }
+    }
+    
+    return render_template('project_detail.html', project=project, chart_data=chart_data)
+
+@web.route('/projects/<int:project_id>/settings')
+def project_settings(project_id):
+    project = Project.query.get_or_404(project_id)
+    return render_template('project_settings.html', project=project)
 
 @web.route('/projects/<int:project_id>/delete', methods=['POST'])
 def delete_project(project_id):
@@ -75,14 +128,53 @@ def update_project_description(project_id):
         project.description = description
         db.session.commit()
         
-    return redirect(url_for('web.project_detail', project_id=project.id))
+    return redirect(url_for('web.project_settings', project_id=project.id))
+
+@web.route('/projects/<int:project_id>/repositories/add', methods=['POST'])
+def add_repository(project_id):
+    project = Project.query.get_or_404(project_id)
+    repo_url = request.form.get('repo_url')
+    
+    if repo_url:
+        repo_name = repo_url.rstrip('/').split('/')[-1]
+        repo = Repository(project_id=project.id, url=repo_url, name=repo_name)
+        db.session.add(repo)
+        db.session.commit()
+        flash('Repository added successfully.')
+    else:
+        flash('Repository URL cannot be empty.', 'error')
+        
+    return redirect(url_for('web.project_settings', project_id=project.id))
+
+@web.route('/projects/<int:project_id>/repositories/<int:repo_id>/delete', methods=['POST'])
+def delete_repository(project_id, repo_id):
+    project = Project.query.get_or_404(project_id)
+    repository = Repository.query.get_or_404(repo_id)
+    
+    if repository.project_id != project.id:
+        flash('Repository does not belong to this project.', 'error')
+        return redirect(url_for('web.project_settings', project_id=project.id))
+        
+    try:
+        db.session.delete(repository)
+        db.session.commit()
+        flash('Repository deleted successfully.')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error deleting repository.', 'error')
+        print(f"Delete Repository Error: {e}")
+        
+    return redirect(url_for('web.project_settings', project_id=project.id))
 
 @web.route('/projects/<int:project_id>/scan', methods=['POST'])
 def run_scan(project_id):
     project = Project.query.get_or_404(project_id)
     
+    # Get options from form
+    include_secrets = request.form.get('include_secrets') == 'on'
+    
     # Create Scan Record
-    scan = Scan(project_id=project.id, status='RUNNING')
+    scan = Scan(project_id=project.id, status='RUNNING', include_secrets=include_secrets)
     db.session.add(scan)
     db.session.commit()
     
@@ -100,81 +192,107 @@ def run_scan(project_id):
 def execute_scan(scan_id):
     scan = Scan.query.get_or_404(scan_id)
     
-    try:
-        # Initialize Engine
-        engine = ScanEngine(scan.id)
-        
-        # Run Scan
-        vulnerabilities, quality_issues, secrets = engine.run(scan.project.repositories)
-        
-        # Save Results
-        for vuln in vulnerabilities:
-            db.session.add(vuln)
-        
-        for issue in quality_issues:
-            db.session.add(issue)
-            
-        for secret_data in secrets:
-            secret = Secret(scan_id=scan.id, **secret_data)
-            db.session.add(secret)
+    # Run scan in a separate thread to avoid blocking the request
+    # We pass the application context to the thread so it can access the DB
+    from flask import current_app
+    app_real = current_app._get_current_object()
+    
+    thread = threading.Thread(target=_perform_scan, args=(app_real, scan_id))
+    thread.start()
+    
+    return "STARTED"
 
-        # --- CALCULATE GRADES ---
-        
-        # 1. Security Score/Grade
-        critical_count = sum(1 for v in vulnerabilities if v.severity == 'CRITICAL')
-        high_count = sum(1 for v in vulnerabilities if v.severity == 'HIGH') + len(secrets)
-        medium_count = sum(1 for v in vulnerabilities if v.severity == 'MEDIUM')
-        
-        if critical_count > 0:
-            scan.security_grade = 'F'
-            scan.security_score = 40
-        elif high_count > 0:
-            scan.security_grade = 'D'
-            scan.security_score = 55
-        elif medium_count > 5:
-            scan.security_grade = 'C'
-            scan.security_score = 70
-        elif medium_count > 0:
-            scan.security_grade = 'B'
-            scan.security_score = 85
-        else:
-            scan.security_grade = 'A'
-            scan.security_score = 100
+def _perform_scan(app, scan_id):
+    """
+    Background worker function for scanning.
+    """
+    with app.app_context():
+        scan = Scan.query.get(scan_id)
+        if not scan:
+            return
+
+        try:
+            # Initialize Engine
+            engine = ScanEngine(scan.id)
             
-        # 2. Quality Score/Grade
-        # Penalty based model
-        # High severity quality issue (Bug/Error) = -5 pts
-        # Medium (Warning) = -2 pts
-        # Low (Info) = -0.5 (rounded)
-        
-        quality_penalty = 0
-        for q in quality_issues:
-            if q.severity == 'HIGH':
-                quality_penalty += 5
-            elif q.severity == 'MEDIUM':
-                quality_penalty += 2
-            else:
-                quality_penalty += 0.5
+            # Run Scan
+            vulnerabilities, quality_issues, secrets = engine.run(scan.project.repositories, include_secrets=scan.include_secrets)
+            
+            # Save Results
+            for vuln in vulnerabilities:
+                db.session.add(vuln)
+            
+            for issue in quality_issues:
+                db.session.add(issue)
                 
-        # Normalize score 0-100
-        q_score = max(0, 100 - int(quality_penalty))
-        scan.quality_score = q_score
-        
-        if q_score >= 90: scan.quality_grade = 'A'
-        elif q_score >= 80: scan.quality_grade = 'B'
-        elif q_score >= 60: scan.quality_grade = 'C'
-        elif q_score >= 40: scan.quality_grade = 'D'
-        else: scan.quality_grade = 'F'
+            for secret_data in secrets:
+                secret = Secret(scan_id=scan.id, **secret_data)
+                db.session.add(secret)
 
-        scan.status = 'COMPLETED'
-        db.session.commit()
-        return "OK"
-        
-    except Exception as e:
-        print(f"Scan Execution Failed: {e}")
-        scan.status = 'FAILED'
-        db.session.commit()
-        return "FAILED", 500
+            # --- CALCULATE GRADES ---
+            
+            # 1. Security Score/Grade
+            critical_count = sum(1 for v in vulnerabilities if v.severity == 'CRITICAL')
+            high_count = sum(1 for v in vulnerabilities if v.severity == 'HIGH') + len(secrets)
+            medium_count = sum(1 for v in vulnerabilities if v.severity == 'MEDIUM')
+            
+            if critical_count > 0:
+                scan.security_grade = 'F'
+                scan.security_score = 40
+            elif high_count > 0:
+                scan.security_grade = 'D'
+                scan.security_score = 55
+            elif medium_count > 5:
+                scan.security_grade = 'C'
+                scan.security_score = 70
+            elif medium_count > 0:
+                scan.security_grade = 'B'
+                scan.security_score = 85
+            else:
+                scan.security_grade = 'A'
+                scan.security_score = 100
+                
+            # 2. Quality Score/Grade
+            # Penalty based model
+            # High severity quality issue (Bug/Error) = -5 pts
+            # Medium (Warning) = -2 pts
+            # Low (Info) = -0.5 (rounded)
+            
+            quality_penalty = 0
+            for q in quality_issues:
+                if q.severity == 'HIGH':
+                    quality_penalty += 5
+                elif q.severity == 'MEDIUM':
+                    quality_penalty += 2
+                else:
+                    quality_penalty += 0.5
+                    
+            # Normalize score 0-100
+            q_score = max(0, 100 - int(quality_penalty))
+            scan.quality_score = q_score
+            
+            if q_score >= 90: scan.quality_grade = 'A'
+            elif q_score >= 80: scan.quality_grade = 'B'
+            elif q_score >= 60: scan.quality_grade = 'C'
+            elif q_score >= 40: scan.quality_grade = 'D'
+            else: scan.quality_grade = 'F'
+
+            scan.status = 'COMPLETED'
+            db.session.commit()
+            print(f"Scan {scan_id} completed successfully.")
+            
+        except Exception as e:
+            print(f"Scan Execution Failed: {e}")
+            scan.status = 'FAILED'
+            db.session.commit()
+
+@web.route('/api/scans/<int:scan_id>/status')
+def check_scan_status(scan_id):
+    scan = Scan.query.get_or_404(scan_id)
+    return {
+        "status": scan.status,
+        "id": scan.id
+    }
 
 @web.route('/scans/<int:scan_id>')
 def scan_report(scan_id):
@@ -203,6 +321,22 @@ def scan_report(scan_id):
     )
     
     return render_template('scan_report.html', scan=scan, results=sorted_results, secrets=sorted_secrets)
+
+@web.route('/scans/<int:scan_id>/delete', methods=['POST'])
+def delete_scan(scan_id):
+    scan = Scan.query.get_or_404(scan_id)
+    project_id = scan.project_id
+    
+    try:
+        db.session.delete(scan)
+        db.session.commit()
+        flash('Scan deleted successfully.')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error deleting scan.', 'error')
+        print(f"Delete Scan Error: {e}")
+        
+    return redirect(url_for('web.project_detail', project_id=project_id))
 
 @web.route('/scans/<int:scan_id>/report/download')
 def download_report(scan_id):
@@ -248,27 +382,7 @@ def settings():
         
     return render_template('settings.html', settings=settings)
 
-@web.route('/repositories/<int:repo_id>/delete', methods=['POST'])
-def delete_repository(repo_id):
-    repo = Repository.query.get_or_404(repo_id)
-    project_id = repo.project_id
-    db.session.delete(repo)
-    db.session.commit()
-    flash('Repository removed.')
-    return redirect(url_for('web.project_detail', project_id=project_id))
 
-@web.route('/projects/<int:project_id>/repositories/add', methods=['POST'])
-def add_repository(project_id):
-    project = Project.query.get_or_404(project_id)
-    url = request.form.get('url')
-    if url:
-        # Basic name extraction from URL
-        repo_name = url.strip().rstrip('/').split('/')[-1]
-        repo = Repository(project_id=project.id, url=url.strip(), name=repo_name)
-        db.session.add(repo)
-        db.session.commit()
-        flash('Repository added.')
-    return redirect(url_for('web.project_detail', project_id=project_id))
 
 @web.route('/history')
 def history():

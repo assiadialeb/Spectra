@@ -35,6 +35,9 @@ class Scan(db.Model):
     security_score = db.Column(db.Integer, nullable=True) # 0-100
     quality_score = db.Column(db.Integer, nullable=True) # 0-100
     
+    # Configuration
+    include_secrets = db.Column(db.Boolean, default=True)
+    
     # Relationships
     results = db.relationship('Vulnerability', backref='scan', lazy=True, cascade="all, delete-orphan")
     quality_issues = db.relationship('QualityIssue', backref='scan', lazy=True, cascade="all, delete-orphan")

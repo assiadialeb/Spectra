@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row pt-3 pb-2 mb-3 border-bottom">
+    <div class="col-md-9">
+        <h1 class="h2">Project Settings: {{ project.name }}</h1>
+        <p class="text-muted">Manage your project configuration, repositories, and danger zone.</p>
+    </div>
+    <div class="col-md-3 text-end">
+        <a href="{{ url_for('web.project_detail', project_id=project.id) }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- General Settings -->
+    <div class="col-md-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-white">
+                <i class="bi bi-gear-fill me-2"></i> General Information
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('web.update_project_description', project_id=project.id) }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Project Name</label>
+                        <input type="text" class="form-control" value="{{ project.name }}" disabled readonly>
+                        <div class="form-text">Project name cannot be changed directly.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" rows="3">{{ project.description }}</textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Repository Management -->
+    <div class="col-md-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-github me-2"></i> Repositories</span>
+                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal"
+                    data-bs-target="#addRepoModal">
+                    <i class="bi bi-plus-lg"></i> Add Repository
+                </button>
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for repo in project.repositories|sort(attribute='name') %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>{{ repo.name }}</strong>
+                        <br>
+                        <small class="text-muted">{{ repo.url }}</small>
+                    </div>
+                    <form action="{{ url_for('web.delete_repository', project_id=project.id, repo_id=repo.id) }}"
+                        method="POST"
+                        onsubmit="return confirm('Disconnect this repository from the project? This does not delete the repository itself.');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                            <i class="bi bi-trash"></i> Remove
+                        </button>
+                    </form>
+                </li>
+                {% else %}
+                <li class="list-group-item text-center text-muted py-4">No repositories linked.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Danger Zone -->
+    <div class="col-md-12 mb-4">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> Danger Zone
+            </div>
+            <div class="card-body">
+                <h5 class="card-title text-danger">Delete Project</h5>
+                <p class="card-text">Once you delete a project, there is no going back. Please be certain.</p>
+                <form action="{{ url_for('web.delete_project', project_id=project.id) }}" method="POST"
+                    onsubmit="return confirm('CRITICAL WARNING: This action is irreversible.\n\nAre you sure you want to permanently DELETE this project and ALL its scan history?');">
+                    <button type="submit" class="btn btn-danger">Delete Project</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Repo Modal -->
+<div class="modal fade" id="addRepoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Repository</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('web.add_repository', project_id=project.id) }}" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="repoUrl" class="form-label">Repository URL</label>
+                        <input type="url" class="form-control" id="repoUrl" name="url" required
+                            placeholder="https://github.com/org/repo">
+                        <div class="form-text">Only public repositories are supported for now if no token is configured.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

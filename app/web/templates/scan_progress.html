@@ -34,22 +34,56 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // Trigger the scan execution
+        // 1. Trigger the scan execution (non-blocking)
         fetch("{{ url_for('web.execute_scan', scan_id=scan.id) }}")
             .then(response => {
-                if (response.ok) {
-                    document.getElementById('progress-spinner').classList.add('d-none');
-                    document.getElementById('success-message').classList.remove('d-none');
-                    // Optional: Auto redirect
-                    // window.location.href = "{{ url_for('web.scan_report', scan_id=scan.id) }}";
-                } else {
-                    throw new Error('Scan failed');
+                if (!response.ok) {
+                    throw new Error('Failed to start scan');
                 }
+                console.log("Scan started...");
+                // 2. Start Polling for Status
+                startPolling();
             })
             .catch(error => {
-                document.getElementById('progress-spinner').classList.add('d-none');
-                document.getElementById('error-message').classList.remove('d-none');
+                showError();
             });
+
+        function startPolling() {
+            const pollInterval = setInterval(() => {
+                fetch("{{ url_for('web.check_scan_status', scan_id=scan.id) }}")
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log("Scan Status:", data.status);
+
+                        if (data.status === 'COMPLETED') {
+                            clearInterval(pollInterval);
+                            showSuccess();
+                        } else if (data.status === 'FAILED') {
+                            clearInterval(pollInterval);
+                            showError();
+                        }
+                        // If RUNNING or PENDING, do nothing and wait for next poll
+                    })
+                    .catch(err => {
+                        console.error("Polling error:", err);
+                        // Don't stop polling on transient network errors, maybe?
+                    });
+            }, 2000); // Check every 2 seconds
+        }
+
+        function showSuccess() {
+            document.getElementById('progress-spinner').classList.add('d-none');
+            document.getElementById('success-message').classList.remove('d-none');
+            // Auto redirect after a short delay
+            setTimeout(() => {
+                window.location.href = "{{ url_for('web.scan_report', scan_id=scan.id) }}";
+            }, 1000);
+        }
+
+        function showError() {
+            document.getElementById('progress-spinner').classList.add('d-none');
+            document.getElementById('error-message').classList.remove('d-none');
+        }
     });
 </script>
 {% endblock %}
