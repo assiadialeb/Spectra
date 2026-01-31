@@ -5,6 +5,8 @@ site_url: https://github.com/assiadialeb/Spectra
 
 theme:
   name: material
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
   features:
     - navigation.tabs
     - navigation.sections
