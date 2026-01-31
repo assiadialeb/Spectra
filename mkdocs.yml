@@ -37,7 +37,7 @@ nav:
   - Installation Guide: user-guide/installation.md
   - User Guide:
     - Initial Configuration: user-guide/configuration.md
-    - Creating Projects: user-guide/projects.md
+    - Creating Projects: user-guide/create-project.md
     - Running Scans: user-guide/scanning.md
     - Reports & Exports: user-guide/reports.md
   - Developer Guide:
