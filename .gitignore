@@ -8,3 +8,5 @@ instance/
 gemini.md
 exemple_report.md
 ROADMAP_v2_QUALITY.md
+migrate_db_v2.py
+migrate_db.py
