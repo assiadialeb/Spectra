@@ -11,6 +11,14 @@ RUN apt-get update && apt-get install -y \
 # Install Trivy
 RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
+# Install Gitleaks
+# Fetching the latest release or a pinned version is best. Pinning for stability.
+ENV GITLEAKS_VERSION=8.18.1
+RUN curl -sSLO https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_amd64.tar.gz && \
+    tar -xzf gitleaks_${GITLEAKS_VERSION}_linux_amd64.tar.gz -C /usr/local/bin gitleaks && \
+    rm gitleaks_${GITLEAKS_VERSION}_linux_amd64.tar.gz && \
+    chmod +x /usr/local/bin/gitleaks
+
 # Set working directory
 WORKDIR /app
 
