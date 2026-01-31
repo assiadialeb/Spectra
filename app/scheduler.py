@@ -6,23 +6,33 @@ import threading
 
 scheduler = APScheduler()
 
+import atexit
+
 def init_scheduler(app):
     """
     Initialize the scheduler and register the master polling job.
     """
+    if scheduler.running:
+        return
+
     # Config for APScheduler
     app.config['SCHEDULER_API_ENABLED'] = True # Optional, exposes API
     
     scheduler.init_app(app)
     scheduler.start()
     
+    # Ensure scheduler shuts down when app exits
+    atexit.register(lambda: scheduler.shutdown(wait=False))
+    
     # Register the master job to run every minute
+    # Replace existing job if any to avoid duplicates
     scheduler.add_job(
         id='master_scan_poller',
         func=check_and_run_scheduled_scans,
         trigger='interval',
         minutes=1,
-        args=[app]
+        args=[app],
+        replace_existing=True
     )
     print("Scheduler started: Polling for scheduled scans every minute.")
 
