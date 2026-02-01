@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% set config = project.scan_configuration or {} %}
+
 <div class="row pt-3 pb-2 mb-3 border-bottom">
     <div class="col-md-9">
         <h1 class="h2">Project Settings: {{ project.name }}</h1>
@@ -37,11 +39,208 @@
         </div>
     </div>
 
-    <!-- Scheduling Settings -->
+    <!-- Default Scan Configuration -->
     <div class="col-md-12 mb-4">
         <div class="card">
             <div class="card-header bg-white">
-                <i class="bi bi-calendar-event me-2"></i> Scheduled Scans
+                <i class="bi bi-sliders me-2"></i> Default Scan Profiles
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">Configure the default parameters used for scheduled scans and pre-filled for
+                    manual scans.</p>
+
+                <form action="{{ url_for('web.update_project_config', project_id=project.id) }}" method="POST">
+
+                    <ul class="nav nav-tabs mb-3" id="scanConfigTabs" role="tablist">
+                        <li class="nav-item">
+                            <button class="nav-link active" id="sast-tab" data-bs-toggle="tab"
+                                data-bs-target="#sast-config" type="button" role="tab">SAST & Secrets</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" id="dast-tab" data-bs-toggle="tab" data-bs-target="#dast-config"
+                                type="button" role="tab">DAST (Nuclei)</button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="scanConfigContent">
+
+                        <!-- SAST TAB -->
+                        <div class="tab-pane fade show active" id="sast-config" role="tabpanel">
+                            <h6 class="fw-bold mb-3">Static Analysis Engines</h6>
+
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="sast_enable_semgrep" {% if
+                                    config.get('enable_semgrep', True) %}checked{% endif %}>
+                                <label class="form-check-label">Enable <strong>Semgrep</strong> (Code Quality &
+                                    Security)</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="sast_enable_trivy" {% if
+                                    config.get('enable_trivy', True) %}checked{% endif %}>
+                                <label class="form-check-label">Enable <strong>Trivy</strong> (Dependencies &
+                                    IaC)</label>
+                            </div>
+
+                            <hr>
+
+                            <h6 class="fw-bold mb-3">Secrets Detection (Gitleaks)</h6>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="sast_enable_gitleaks"
+                                    name="sast_enable_gitleaks" {% if config.get('enable_gitleaks', True) %}checked{%
+                                    endif %}>
+                                <label class="form-check-label" for="sast_enable_gitleaks">Enable Gitleaks</label>
+                            </div>
+
+                            <div class="row g-3 align-items-center">
+                                <div class="col-auto">
+                                    <label class="col-form-label">Scan Mode:</label>
+                                </div>
+                                <div class="col-auto">
+                                    <select class="form-select" name="gitleaks_mode" id="gitleaksModeSelect">
+                                        <option value="full" {% if config.get('gitleaks_mode')=='full' %}selected{%
+                                            endif %}>Full History (All Commits)</option>
+                                        <option value="depth" {% if config.get('gitleaks_mode')=='depth' %}selected{%
+                                            endif %}>Specific Depth (Last N Commits)</option>
+                                        <option value="no-git" {% if config.get('gitleaks_mode')=='no-git' %}selected{%
+                                            endif %}>Current Files Only (No History)</option>
+                                    </select>
+                                </div>
+                                <div class="col-auto" id="gitleaksDepthInput"
+                                    style="display: {% if config.get('gitleaks_mode') == 'depth' %}block{% else %}none{% endif %};">
+                                    <input type="number" class="form-control" name="gitleaks_depth"
+                                        placeholder="Depth (e.g. 10)" value="{{ config.get('gitleaks_depth', '') }}">
+                                </div>
+                            </div>
+                            <div class="form-text mt-2">
+                                "Current Files Only" is fastest but may miss historical secrets. "Full History" is
+                                thorough but slow on large repos.
+                            </div>
+                        </div>
+
+                        <!-- DAST TAB -->
+                        <div class="tab-pane fade" id="dast-config" role="tabpanel">
+                            <h6 class="fw-bold mb-3">Nuclei Configuration</h6>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold">Severity</label>
+                                    <div>
+                                        {% set severities = config.get('severity') or ['critical', 'high', 'medium'] %}
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="checkbox" name="dast_severity"
+                                                value="critical" {% if 'critical' in severities %}checked{% endif %}>
+                                            <label class="small">Critical</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="checkbox" name="dast_severity"
+                                                value="high" {% if 'high' in severities %}checked{% endif %}> <label
+                                                class="small">High</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="checkbox" name="dast_severity"
+                                                value="medium" {% if 'medium' in severities %}checked{% endif %}> <label
+                                                class="small">Medium</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="checkbox" name="dast_severity"
+                                                value="low" {% if 'low' in severities %}checked{% endif %}> <label
+                                                class="small">Low</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold">Performance</label>
+                                    <div class="input-group input-group-sm mb-2">
+                                        <span class="input-group-text">Rate Limit</span>
+                                        <input type="number" class="form-control" name="dast_rate_limit"
+                                            value="{{ config.get('rate_limit', 150) }}">
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" name="dast_passive" {% if
+                                            config.get('passive') %}checked{% endif %}>
+                                        <label class="form-check-label small">Passive Mode Only</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-3">
+                                <label class="form-label small fw-bold">Detailed Tags</label>
+                                {% set saved_tags = config.get('tags') or 'misconfig,exposure' %}
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <div class="form-check"><input class="form-check-input" type="checkbox"
+                                                name="dast_tags" value="cve" {% if 'cve' in saved_tags %}checked{% endif
+                                                %}><label class="small">CVEs</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox"
+                                                name="dast_tags" value="xss" {% if 'xss' in saved_tags %}checked{% endif
+                                                %}><label class="small">XSS</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox"
+                                                name="dast_tags" value="sqli" {% if 'sqli' in saved_tags %}checked{%
+                                                endif %}><label class="small">SQLi</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox"
+                                                name="dast_tags" value="rce" {% if 'rce' in saved_tags %}checked{% endif
+                                                %}><label class="small">RCE</label></div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check"><input class="form-check-input" type="checkbox"
+                                                name="dast_tags" value="misconfig" {% if 'misconfig' in saved_tags
+                                                %}checked{% endif %}><label class="small">Misconfig</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox"
+                                                name="dast_tags" value="exposure" {% if 'exposure' in saved_tags
+                                                %}checked{% endif %}><label class="small">Exposure</label></div>
+                                        <div class="form-check"><input class="form-check-input" type="checkbox"
+                                                name="dast_tags" value="tech" {% if 'tech' in saved_tags %}checked{%
+                                                endif %}><label class="small">Tech</label></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-3">
+                                <label class="form-label small fw-bold">Network</label>
+                                <input type="text" class="form-control form-control-sm mb-2" name="dast_proxy"
+                                    placeholder="Proxy URL (http://...)" value="{{ config.get('proxy', '') }}">
+                                <textarea class="form-control form-control-sm" name="dast_headers" rows="2"
+                                    placeholder="Custom Headers">{{ config.get('headers', '') }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Scheduler Scope Section Inside Config Form -->
+                    <div class="alert alert-secondary mt-4 mb-3">
+                        <h6 class="fw-bold mb-2"><i class="bi bi-calendar-check me-2"></i>Scheduled Scan Scope</h6>
+                        <p class="small mb-2">When the automatic scheduler triggers, run the following:</p>
+                        <div class="row">
+                            <div class="col-auto">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="schedule_run_sast" {% if
+                                        config.get('run_sast', True) %}checked{% endif %}>
+                                    <label class="form-check-label">Reference Code (SAST)</label>
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="schedule_run_dast" {% if
+                                        config.get('run_dast', False) %}checked{% endif %}>
+                                    <label class="form-check-label">Web Application (DAST)</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 text-end">
+                        <button type="submit" class="btn btn-success"><i class="bi bi-save me-1"></i> Save
+                            Configuration</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scheduling Frequency Settings -->
+    <div class="col-md-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-white">
+                <i class="bi bi-calendar-event me-2"></i> Scheduler Timing
             </div>
             <div class="card-body">
                 <form action="{{ url_for('web.update_project_schedule', project_id=project.id) }}" method="POST">
@@ -49,11 +248,6 @@
                         <input class="form-check-input" type="checkbox" id="schedule_enabled" name="schedule_enabled" {%
                             if project.schedule_enabled %}checked{% endif %}>
                         <label class="form-check-label" for="schedule_enabled">Enable Automatic Scanning</label>
-                    </div>
-
-                    <div class="alert alert-info py-2 mb-3">
-                        <small><i class="bi bi-info-circle me-1"></i> Note: Currently, only code repositories (SAST) are
-                            automatically scanned. Web application scans (DAST) must be triggered manually.</small>
                     </div>
 
                     <div id="schedule-options" class="row g-3 {% if not project.schedule_enabled %}d-none{% endif %}">
@@ -84,19 +278,10 @@
                     </div>
 
                     <div class="mt-3">
-                        <button type="submit" class="btn btn-primary">Update Schedule</button>
+                        <button type="submit" class="btn btn-primary">Update Schedule Timing</button>
                     </div>
                 </form>
             </div>
-            <script>
-                document.getElementById('schedule_enabled').addEventListener('change', function () {
-                    document.getElementById('schedule-options').classList.toggle('d-none', !this.checked);
-                });
-
-                document.getElementById('frequencySelect').addEventListener('change', function () {
-                    document.getElementById('day-select-group').style.display = this.value === 'weekly' ? 'block' : 'none';
-                });
-            </script>
         </div>
     </div>
 
@@ -243,4 +428,25 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Logic for Gitleaks Depth Input Visibility
+    const gitleaksModeSelect = document.getElementById('gitleaksModeSelect');
+    const gitleaksDepthInput = document.getElementById('gitleaksDepthInput');
+
+    if (gitleaksModeSelect) {
+        gitleaksModeSelect.addEventListener('change', function () {
+            gitleaksDepthInput.style.display = this.value === 'depth' ? 'block' : 'none';
+        });
+    }
+
+    // Logic for Schedule
+    document.getElementById('schedule_enabled').addEventListener('change', function () {
+        document.getElementById('schedule-options').classList.toggle('d-none', !this.checked);
+    });
+
+    document.getElementById('frequencySelect').addEventListener('change', function () {
+        document.getElementById('day-select-group').style.display = this.value === 'weekly' ? 'block' : 'none';
+    });
+</script>
 {% endblock %}

@@ -255,6 +255,53 @@ def delete_target_url(project_id, target_id):
         
     return redirect(url_for('web.project_settings', project_id=project.id))
 
+@web.route('/projects/<int:project_id>/config', methods=['POST'])
+def update_project_config(project_id):
+    project = Project.query.get_or_404(project_id)
+    
+    # 1. Parse SAST Config
+    sast_config = {
+        'enable_semgrep': request.form.get('sast_enable_semgrep') == 'on',
+        'enable_trivy': request.form.get('sast_enable_trivy') == 'on',
+        'enable_gitleaks': request.form.get('sast_enable_gitleaks') == 'on',
+        'gitleaks_mode': request.form.get('gitleaks_mode', 'full'),
+        'gitleaks_depth': request.form.get('gitleaks_depth')
+    }
+    
+    # 2. Parse DAST Config
+    dast_config = {
+        'severity': request.form.getlist('dast_severity'),
+        'tags': ','.join(request.form.getlist('dast_tags')), 
+        'exclude_tags': request.form.get('dast_exclude_tags'),
+        'rate_limit': request.form.get('dast_rate_limit'),
+        'concurrency': request.form.get('dast_concurrency'),
+        'timeout': request.form.get('dast_timeout'),
+        'passive': request.form.get('dast_passive') == 'on',
+        'proxy': request.form.get('dast_proxy'),
+        'headers': request.form.get('dast_headers')
+    }
+    
+    # 3. Scheduler Scope (also saved in config or project fields?)
+    # Let's save scheduler scope in the JSON config for simplicity, 
+    # or add columns. JSON is flexible.
+    schedule_scope = {
+        'run_sast': request.form.get('schedule_run_sast') == 'on',
+        'run_dast': request.form.get('schedule_run_dast') == 'on'
+    }
+
+    # Consolidated Config
+    full_config = {
+        **sast_config,
+        **dast_config,
+        **schedule_scope
+    }
+    
+    project.scan_configuration = full_config
+    db.session.commit()
+    
+    flash('Project scan configuration updated successfully.', 'success')
+    return redirect(url_for('web.project_settings', project_id=project.id))
+
 @web.route('/projects/<int:project_id>/scan', methods=['GET', 'POST'])
 def run_scan(project_id):
     project = Project.query.get_or_404(project_id)
@@ -267,16 +314,39 @@ def run_scan(project_id):
     include_secrets = request.form.get('include_secrets') == 'on'
     
     # Create Scan Record
-    # For DAST, include_secrets is not really relevant as a user toggle, 
-    # but we can set it to False to be clean or keep default.
+    scan_config = {}
+    
     if scan_type == 'DAST':
         include_secrets = False
+        # Capture Advanced Config
+        scan_config = {
+            'severity': request.form.getlist('dast_severity'), # Returns list ['critical', 'high']
+            'tags': ','.join(request.form.getlist('dast_tags')), # Join selected tags
+            'exclude_tags': request.form.get('dast_exclude_tags'),
+            'rate_limit': request.form.get('dast_rate_limit'),
+            'concurrency': request.form.get('dast_concurrency'),
+            'timeout': request.form.get('dast_timeout'),
+            'passive': request.form.get('dast_passive') == 'on',
+            'proxy': request.form.get('dast_proxy'),
+            'headers': request.form.get('dast_headers')
+        }
+    else:
+        # Capture SAST Config
+        scan_config = {
+            'enable_semgrep': request.form.get('sast_enable_semgrep') == 'on',
+            'enable_trivy': request.form.get('sast_enable_trivy') == 'on',
+            # Gitleaks is handled by top-level include_secrets column, but we can mirror it here
+            'enable_gitleaks': include_secrets,
+            'gitleaks_mode': request.form.get('gitleaks_mode', 'full'),
+            'gitleaks_depth': request.form.get('gitleaks_depth')
+        }
         
     scan = Scan(
         project_id=project.id, 
         status='RUNNING', 
         scan_type=scan_type,
-        include_secrets=include_secrets
+        include_secrets=include_secrets,
+        configuration=scan_config
     )
     db.session.add(scan)
     db.session.commit()

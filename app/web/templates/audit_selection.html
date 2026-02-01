@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% set config = project.scan_configuration or {} %}
+
 <div class="row pt-3 pb-2 mb-3 border-bottom">
     <div class="col-md-12">
         <h1 class="h2">New Audit: {{ project.name }}</h1>
@@ -35,10 +37,72 @@
                 <form action="{{ url_for('web.run_scan', project_id=project.id) }}" method="POST">
                     <input type="hidden" name="scan_type" value="SAST">
 
-                    <div class="form-check form-switch text-start d-inline-block mb-3">
-                        <input class="form-check-input" type="checkbox" id="include_secrets" name="include_secrets"
-                            checked>
-                        <label class="form-check-label" for="include_secrets">Include Secrets Scan (Slower)</label>
+                    <!-- Advanced Configuration Accordion (SAST) -->
+                    <div class="accordion mb-4 text-start" id="sastConfigAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingSastConfig">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#collapseSastConfig" aria-expanded="false"
+                                    aria-controls="collapseSastConfig">
+                                    <i class="bi bi-sliders me-2"></i> Customize Scanners
+                                </button>
+                            </h2>
+                            <div id="collapseSastConfig" class="accordion-collapse collapse"
+                                aria-labelledby="headingSastConfig" data-bs-parent="#sastConfigAccordion">
+                                <div class="accordion-body">
+                                    <h6 class="fw-bold mb-3"><i class="bi bi-cpu me-1"></i> Enabled Engines</h6>
+
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="enable_semgrep"
+                                            name="sast_enable_semgrep" {% if config.get('enable_semgrep', True)
+                                            %}checked{% endif %}>
+                                        <label class="form-check-label" for="enable_semgrep">
+                                            <strong>Semgrep</strong> (Code Quality & Security)
+                                        </label>
+                                    </div>
+
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="enable_trivy"
+                                            name="sast_enable_trivy" {% if config.get('enable_trivy', True) %}checked{%
+                                            endif %}>
+                                        <label class="form-check-label" for="enable_trivy">
+                                            <strong>Trivy</strong> (SCA & Config)
+                                        </label>
+                                    </div>
+
+                                    <hr>
+                                    <h6 class="fw-bold mb-2">Secrets Detection (Gitleaks)</h6>
+
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="include_secrets"
+                                            name="include_secrets" {% if config.get('enable_gitleaks', True) %}checked{%
+                                            endif %}>
+                                        <label class="form-check-label" for="include_secrets">Enable Gitleaks</label>
+                                    </div>
+
+                                    <div class="mb-2">
+                                        <label class="form-label small text-muted">Scan Mode</label>
+                                        <select class="form-select form-select-sm" name="gitleaks_mode"
+                                            id="gitleaksModeSelect">
+                                            <option value="full" {% if config.get('gitleaks_mode')=='full' %}selected{%
+                                                endif %}>Full History (Deep)</option>
+                                            <option value="depth" {% if config.get('gitleaks_mode')=='depth'
+                                                %}selected{% endif %}>Specific Depth (Fast)</option>
+                                            <option value="no-git" {% if config.get('gitleaks_mode')=='no-git'
+                                                %}selected{% endif %}>Current Files (No History)</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-2" id="gitleaksDepthInput"
+                                        style="display: {% if config.get('gitleaks_mode') == 'depth' %}block{% else %}none{% endif %};">
+                                        <label class="form-label small text-muted">Depth (Commits)</label>
+                                        <input type="number" class="form-control form-control-sm" name="gitleaks_depth"
+                                            placeholder="e.g. 50" value="{{ config.get('gitleaks_depth', '') }}">
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="d-grid">
@@ -72,14 +136,133 @@
                             {% endfor %}
                         </ul>
                         {% else %}
-                        <span class="text-danger"><i class="bi bi-exclamation-circle me-1"></i> No targets defined in
-                            settings.</span>
+                        <span class="text-danger"><i class="bi bi-exclamation-circle me-1"></i> No targets
+                            defined.</span>
                         {% endif %}
                     </small>
                 </div>
 
                 <form action="{{ url_for('web.run_scan', project_id=project.id) }}" method="POST">
                     <input type="hidden" name="scan_type" value="DAST">
+
+                    <!-- Advanced Configuration Accordion -->
+                    <div class="accordion mb-4 text-start" id="dastConfigAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingConfig">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#collapseConfig" aria-expanded="false"
+                                    aria-controls="collapseConfig">
+                                    <i class="bi bi-sliders me-2"></i> Advanced Configuration (Nuclei)
+                                </button>
+                            </h2>
+                            <div id="collapseConfig" class="accordion-collapse collapse" aria-labelledby="headingConfig"
+                                data-bs-parent="#dastConfigAccordion">
+                                <div class="accordion-body">
+
+                                    {% set severities = config.get('severity') or ['critical', 'high', 'medium'] %}
+                                    <h6 class="fw-bold mb-3"><i class="bi bi-funnel me-1"></i> Filtering</h6>
+
+                                    <div class="mb-3">
+                                        <label class="form-label small text-muted">Severity</label><br>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="checkbox" name="dast_severity"
+                                                value="critical" {% if 'critical' in severities %}checked{% endif %}>
+                                            <label class="form-check-label small">Critical</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="checkbox" name="dast_severity"
+                                                value="high" {% if 'high' in severities %}checked{% endif %}>
+                                            <label class="form-check-label small">High</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="checkbox" name="dast_severity"
+                                                value="medium" {% if 'medium' in severities %}checked{% endif %}>
+                                            <label class="form-check-label small">Medium</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="checkbox" name="dast_severity"
+                                                value="low" {% if 'low' in severities %}checked{% endif %}>
+                                            <label class="form-check-label small">Low</label>
+                                        </div>
+                                    </div>
+
+                                    {% set saved_tags = config.get('tags') or 'misconfig,exposure' %}
+                                    <div class="row">
+                                        <div class="mb-3">
+                                            <label class="form-label small text-muted">Tags</label>
+                                            <div class="row g-2">
+                                                <div class="col-6">
+                                                    <div class="form-check"><input type="checkbox"
+                                                            class="form-check-input" name="dast_tags" value="cve" {%
+                                                            if 'cve' in saved_tags %}checked{% endif %}><label
+                                                            class="small">CVEs</label></div>
+                                                    <div class="form-check"><input type="checkbox"
+                                                            class="form-check-input" name="dast_tags" value="xss" {%
+                                                            if 'xss' in saved_tags %}checked{% endif %}><label
+                                                            class="small">XSS</label></div>
+                                                    <div class="form-check"><input type="checkbox"
+                                                            class="form-check-input" name="dast_tags" value="sqli" {%
+                                                            if 'sqli' in saved_tags %}checked{% endif %}><label
+                                                            class="small">SQLi</label></div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="form-check"><input type="checkbox"
+                                                            class="form-check-input" name="dast_tags" value="misconfig"
+                                                            {% if 'misconfig' in saved_tags %}checked{% endif %}><label
+                                                            class="small">Misconfig</label></div>
+                                                    <div class="form-check"><input type="checkbox"
+                                                            class="form-check-input" name="dast_tags" value="exposure"
+                                                            {% if 'exposure' in saved_tags %}checked{% endif %}><label
+                                                            class="small">Exposure</label></div>
+                                                    <div class="form-check"><input type="checkbox"
+                                                            class="form-check-input" name="dast_tags" value="tech" {%
+                                                            if 'tech' in saved_tags %}checked{% endif %}><label
+                                                            class="small">Tech</label></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <hr class="my-3">
+                                    <h6 class="fw-bold mb-3"><i class="bi bi-speedometer2 me-1"></i> Performance</h6>
+
+                                    <div class="row g-2">
+                                        <div class="col-4">
+                                            <label class="form-label small">Rate Limit</label>
+                                            <input type="number" class="form-control form-control-sm"
+                                                name="dast_rate_limit" value="{{ config.get('rate_limit', 150) }}">
+                                        </div>
+                                        <div class="col-4">
+                                            <label class="form-label small">Concurrency</label>
+                                            <input type="number" class="form-control form-control-sm"
+                                                name="dast_concurrency" value="{{ config.get('concurrency', 25) }}">
+                                        </div>
+                                        <div class="col-4">
+                                            <label class="form-label small">Timeout</label>
+                                            <input type="number" class="form-control form-control-sm"
+                                                name="dast_timeout" value="{{ config.get('timeout', 5) }}">
+                                        </div>
+                                    </div>
+
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="dast_passive"
+                                            name="dast_passive" {% if config.get('passive') %}checked{% endif %}>
+                                        <label class="form-check-label small" for="dast_passive">Passive Mode
+                                            Only</label>
+                                    </div>
+
+                                    <hr class="my-3">
+                                    <h6 class="fw-bold mb-3">Network</h6>
+                                    <input type="text" class="form-control form-control-sm mb-2" name="dast_proxy"
+                                        placeholder="Proxy URL" value="{{ config.get('proxy', '') }}">
+                                    <textarea class="form-control form-control-sm" name="dast_headers" rows="2"
+                                        placeholder="Custom Headers">{{ config.get('headers', '') }}</textarea>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="d-grid">
                         <button type="submit" class="btn btn-info text-white btn-lg" {% if not project.target_urls
                             %}disabled{% endif %}>
@@ -102,4 +285,22 @@
         border-color: #0d6efd;
     }
 </style>
+
+<script>
+    // Gitleaks Depth Toggle
+    const toggleDepth = () => {
+        const mode = document.getElementById('gitleaksModeSelect');
+        const depth = document.getElementById('gitleaksDepthInput');
+        if (mode && depth) {
+            depth.style.display = mode.value === 'depth' ? 'block' : 'none';
+        }
+    };
+
+    const modeSelect = document.getElementById('gitleaksModeSelect');
+    if (modeSelect) {
+        modeSelect.addEventListener('change', toggleDepth);
+        // Init
+        toggleDepth();
+    }
+</script>
 {% endblock %}

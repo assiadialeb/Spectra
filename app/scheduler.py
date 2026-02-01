@@ -84,24 +84,58 @@ def check_and_run_scheduled_scans(app):
 
 def trigger_scheduled_scan(app, project):
     """
-    Launches the scan and updates the last_scheduled_scan timestamp.
+    Launches the scan(s) based on project configuration and updates timestamp.
     """
-    # 1. Create Scan Record
-    # By default scheduled scans include secrets? Let's assume Yes or use default from Project config (if we had one)
-    # For now, default True
-    scan = Scan(project_id=project.id, status='RUNNING', include_secrets=True)
-    db.session.add(scan)
+    # 1. Load Configuration
+    config = project.scan_configuration if project.scan_configuration else {}
     
-    # Update last run
+    # Determine Scope (Default to SAST only if not configured, for safety)
+    run_sast = config.get('run_sast', True) # Default True
+    run_dast = config.get('run_dast', False) # Default False
+    
+    print(f"[Scheduler] Triggering for Project {project.id}. Scope: SAST={run_sast}, DAST={run_dast}")
+
+    # Update last run timestamp immediately
     project.last_scheduled_scan = datetime.now()
-    
     db.session.commit()
     
-    # 2. Run Scan (Async thread)
-    # We create a new thread to not block the scheduler loop
-    # We need to pass 'app._get_current_object()' if using proxies, or just 'app' since passed from init
-    thread = threading.Thread(target=_run_scan_worker, args=(app, scan.id))
-    thread.start()
+    # 2. Trigger SAST
+    if run_sast:
+        # Check if secrets enabled in config
+        inc_secrets = config.get('enable_gitleaks', True)
+        
+        scan_sast = Scan(
+            project_id=project.id, 
+            status='RUNNING', 
+            scan_type='SAST',
+            include_secrets=inc_secrets,
+            configuration=config
+        )
+        db.session.add(scan_sast)
+        db.session.commit()
+        
+        t_sast = threading.Thread(target=_run_scan_worker, args=(app, scan_sast.id))
+        t_sast.start()
+        
+    # 3. Trigger DAST
+    if run_dast:
+        # Only run if targets exist
+        if project.target_urls:
+            scan_dast = Scan(
+                project_id=project.id,
+                status='RUNNING',
+                scan_type='DAST',
+                # DAST doesn't use include_secrets col usually, handled in config
+                include_secrets=False, 
+                configuration=config
+            )
+            db.session.add(scan_dast)
+            db.session.commit()
+            
+            t_dast = threading.Thread(target=_run_scan_worker, args=(app, scan_dast.id))
+            t_dast.start()
+        else:
+            print(f"[Scheduler] Skipped DAST for {project.id}: No target URLs.")
 
 def run_scan_now(app, scan_id):
     """
@@ -154,7 +188,9 @@ def _run_scan_worker(app, scan_id):
                     vulnerabilities = []
                 else:
                     nuclei_engine = NucleiEngine(scan.id)
-                    vulnerabilities = nuclei_engine.run(scan.project.target_urls)
+                    # Pass configuration if available
+                    scan_config = scan.configuration if scan.configuration else {}
+                    vulnerabilities = nuclei_engine.run(scan.project.target_urls, config=scan_config)
                 
                 quality_issues = [] # No quality issues in DAST
                 secrets = [] # No secrets in DAST (unless Nuclei finds them as vulns)
@@ -162,7 +198,8 @@ def _run_scan_worker(app, scan_id):
             else:
                 # Default SAST
                 engine = ScanEngine(scan.id)
-                vulnerabilities, quality_issues, secrets = engine.run(scan.project.repositories, include_secrets=scan.include_secrets)
+                scan_config = scan.configuration if scan.configuration else {}
+                vulnerabilities, quality_issues, secrets = engine.run(scan.project.repositories, include_secrets=scan.include_secrets, config=scan_config)
             
             # Save Results
             for vuln in vulnerabilities:

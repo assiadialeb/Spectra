@@ -17,9 +17,12 @@ class Project(db.Model):
     schedule_enabled = db.Column(db.Boolean, default=False)
     schedule_frequency = db.Column(db.String(20), default='daily') # 'daily', 'weekly'
     schedule_time = db.Column(db.String(5), default='00:00') # 'HH:MM'
-    schedule_day = db.Column(db.String(10), nullable=True) # 'monday', etc. (for weekly)
+    schedule_day = db.Column(db.String(10), nullable=True) # For weekly: 'monday', etc.
     last_scheduled_scan = db.Column(db.DateTime, nullable=True)
     
+    # Persistent Scan Configuration (Default for scheduled scans)
+    scan_configuration = db.Column(db.JSON, nullable=True)
+
     # Relationships
     repositories = db.relationship('Repository', backref='project', lazy=True, cascade="all, delete-orphan")
     target_urls = db.relationship('TargetURL', backref='project', lazy=True, cascade="all, delete-orphan")
@@ -53,6 +56,7 @@ class Scan(db.Model):
     # Configuration
     scan_type = db.Column(db.String(10), default='SAST') # SAST, DAST
     include_secrets = db.Column(db.Boolean, default=True)
+    configuration = db.Column(db.JSON, nullable=True) # Stores advanced config (Nuclei flags, etc.)
     
     # Relationships
     results = db.relationship('Vulnerability', backref='scan', lazy=True, cascade="all, delete-orphan")

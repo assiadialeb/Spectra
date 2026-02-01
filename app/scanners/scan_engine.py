@@ -112,15 +112,28 @@ class ScanEngine:
         self.trivy_parser = TrivyParser()
         self.semgrep_parser = SemgrepParser()
 
-    def run(self, repositories, include_secrets=True):
+    def run(self, repositories, include_secrets=True, config=None):
         """
-        Orchestrates the scan process:
-        1. Create temp workspace
-        2. Clone repos
-        3. Run scanners
-        4. Parse results
-        5. Cleanup
+        Orchestrates the scan process with optional configuration.
         """
+        config = config or {}
+        # Default Enable All if not specified
+        enable_semgrep = config.get('enable_semgrep', True)
+        enable_trivy = config.get('enable_trivy', True)
+        # include_secrets override
+        enable_gitleaks = include_secrets if include_secrets else config.get('enable_gitleaks', False)
+        
+        # Gitleaks / Git Clone Config
+        gitleaks_mode = config.get('gitleaks_mode', 'full') # full, depth, no-git
+        gitleaks_depth = config.get('gitleaks_depth', None)
+        
+        # Calculate Clone Depth
+        clone_depth = None
+        if gitleaks_mode == 'no-git':
+            clone_depth = 1 # We only need files
+        elif gitleaks_mode == 'depth' and gitleaks_depth:
+            clone_depth = int(gitleaks_depth)
+
         all_vulnerabilities = []
         all_quality = []
         all_secrets = [] # Default empty
@@ -131,29 +144,35 @@ class ScanEngine:
         
         try:
             # 1. Clone Repositories
-            self._clone_repos(repositories, scan_dir)
+            self._clone_repos(repositories, scan_dir, depth=clone_depth)
             
             # 2. Run Trivy
-            print(f"[Scan {self.scan_id}] Running Trivy...")
-            trivy_results = self._run_trivy(scan_dir)
-            trivy_vulns, trivy_quality = self.trivy_parser.parse(trivy_results, self.scan_id, base_path=scan_dir)
-            all_vulnerabilities.extend(trivy_vulns)
-            all_quality.extend(trivy_quality)
+            if enable_trivy:
+                print(f"[Scan {self.scan_id}] Running Trivy...")
+                trivy_results = self._run_trivy(scan_dir)
+                trivy_vulns, trivy_quality = self.trivy_parser.parse(trivy_results, self.scan_id, base_path=scan_dir)
+                all_vulnerabilities.extend(trivy_vulns)
+                all_quality.extend(trivy_quality)
+            else:
+                print(f"[Scan {self.scan_id}] Skipping Trivy (Disabled)")
             
             # 3. Run Semgrep
-            print(f"[Scan {self.scan_id}] Running Semgrep...")
-            semgrep_results = self._run_semgrep(scan_dir)
-            semgrep_vulns, semgrep_quality = self.semgrep_parser.parse(semgrep_results, self.scan_id, base_path=scan_dir)
-            all_vulnerabilities.extend(semgrep_vulns)
-            all_quality.extend(semgrep_quality)
+            if enable_semgrep:
+                print(f"[Scan {self.scan_id}] Running Semgrep...")
+                semgrep_results = self._run_semgrep(scan_dir)
+                semgrep_vulns, semgrep_quality = self.semgrep_parser.parse(semgrep_results, self.scan_id, base_path=scan_dir)
+                all_vulnerabilities.extend(semgrep_vulns)
+                all_quality.extend(semgrep_quality)
+            else:
+                print(f"[Scan {self.scan_id}] Skipping Semgrep (Disabled)")
             
             # 4. Run Gitleaks (If enabled)
-            if include_secrets:
+            if enable_gitleaks:
                 print(f"[Scan {self.scan_id}] Running Gitleaks...")
-                gitleaks_results = self._run_gitleaks(scan_dir)
+                gitleaks_results = self._run_gitleaks(scan_dir, no_git=(gitleaks_mode == 'no-git'))
                 all_secrets = self._parse_gitleaks(gitleaks_results)
             else:
-                print(f"[Scan {self.scan_id}] Skipping Gitleaks (disabled)")
+                print(f"[Scan {self.scan_id}] Skipping Gitleaks (Disabled)")
             
         except Exception as e:
             print(f"[Scan {self.scan_id}] Error: {e}")
@@ -165,7 +184,7 @@ class ScanEngine:
             
         return all_vulnerabilities, all_quality, all_secrets
 
-    def _run_gitleaks(self, target_dir):
+    def _run_gitleaks(self, target_dir, no_git=False):
         all_leaks = []
         
         # Iterate over each cloned repository in the target_dir
@@ -175,10 +194,10 @@ class ScanEngine:
         subdirs = [os.path.join(target_dir, d) for d in os.listdir(target_dir) if os.path.isdir(os.path.join(target_dir, d))]
         
         for repo_dir in subdirs:
-            # Skip non-directory items or hidden .git if it were at root (shouldn't be)
-            if not os.path.exists(os.path.join(repo_dir, '.git')):
-                continue
-                
+            # In no_git mode, we check files even if .git is present (though clone depth 1 has .git usually)
+            # Actually gitleaks --no-git treats .git as just another folder or ignores it, 
+            # but mainly works on plain files.
+            
             output_file = os.path.join(repo_dir, 'gitleaks_output.json')
             
             # gitleaks detect --source=repo_dir --report-format=json --report-path=output_file
@@ -192,6 +211,9 @@ class ScanEngine:
                 '--exit-code', '0', # Don't return error on leaks
                 '--verbose',
             ]
+            
+            if no_git:
+                cmd.append('--no-git')
             
             try:
                 print(f"Executing Gitleaks command for {os.path.basename(repo_dir)}: {' '.join(cmd)}")
@@ -239,15 +261,14 @@ class ScanEngine:
                 # Convert date string to datetime object
                 # Format is usually ISO 8601: 2023-10-25T10:43:12Z
                 leak_date = None
-                if 'Date' in leak:
-                    try:
-                        leak_date = datetime.strptime(leak.get('Date'), "%Y-%m-%dT%H:%M:%SZ")
-                    except ValueError:
-                         # Try with microsecond or other format if needed, or fallback
-                        try:
-                            leak_date = datetime.fromisoformat(leak.get('Date').replace('Z', '+00:00'))
-                        except:
-                            pass
+                if 'Date' in leak and leak.get('Date'):
+                     date_str = leak.get('Date')
+                     # Handle Z suffix
+                     date_str = date_str.replace('Z', '+00:00')
+                     try:
+                        leak_date = datetime.fromisoformat(date_str)
+                     except:
+                        pass
                 
                 secret = {
                     'title': leak.get('Description', 'Unknown Secret'),
@@ -269,13 +290,13 @@ class ScanEngine:
                 
         return secrets
 
-    def _clone_repos(self, repositories, base_dir):
+    def _clone_repos(self, repositories, base_dir, depth=None):
         for repo in repositories:
             # Unique folder for each repo
             repo_dir = os.path.join(base_dir, repo.name)
             os.makedirs(repo_dir, exist_ok=True)
             
-            success = clone_repository(repo.url, repo_dir)
+            success = clone_repository(repo.url, repo_dir, depth=depth)
             if not success:
                 print(f"Skipping scan for {repo.name} due to clone failure.")
 

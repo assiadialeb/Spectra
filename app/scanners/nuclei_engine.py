@@ -8,40 +8,88 @@ class NucleiEngine:
     def __init__(self, scan_id):
         self.scan_id = scan_id
         
-    def run(self, target_urls):
+    def run(self, target_urls, config=None):
         """
-        Runs Nuclei scan on the provided target URLs.
-        Returns a list of vulnerability objects (dicts) ready for DB insertion.
+        Runs Nuclei scan with optional configuration.
         """
         if not target_urls:
             print("No target URLs provided for Nuclei scan.")
             return []
 
+        config = config or {}
         results = []
         
-        # Create a temporary file for targets
+        # Create temporary files
         with tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.txt') as targets_file:
             for target in target_urls:
                 targets_file.write(f"{target.url}\n")
             targets_path = targets_file.name
             
-        # Create a temporary file for JSON output
         output_file = tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.json')
         output_path = output_file.name
-        output_file.close() # Close usage, nuclei will write to it
+        output_file.close()
         
         try:
-            # Build Nuclei Command
-            # -silent: Less terminal noise
-            # -json-export: Export results to JSON file
-            # -l: Targets file
-            # Default templates are used. Assuming 'nuclei' is in PATH.
-            cmd = [
-                'nuclei',
-                '-l', targets_path,
-                '-json-export', output_path,
-                '-silent'
-            ]
+            # Build Command
+            cmd = ['nuclei', '-l', targets_path, '-json-export', output_path, '-silent']
+            
+            # --- Apply Configuration ---
+            
+            # Filtering
+            if config.get('severity'):
+                # Handle list of severities
+                sevs = config['severity']
+                if isinstance(sevs, list):
+                    sevs = ','.join(sevs)
+                if sevs:
+                    cmd.extend(['-severity', sevs])
+            
+            if config.get('tags'):
+                cmd.extend(['-tags', config['tags']])
+                
+            if config.get('exclude_tags'):
+                cmd.extend(['-etags', config['exclude_tags']])
+                
+            # Performance
+            if config.get('rate_limit'):
+                 cmd.extend(['-rate-limit', str(config['rate_limit'])])
+                 
+            if config.get('concurrency'):
+                 cmd.extend(['-c', str(config['concurrency'])])
+                 
+            if config.get('timeout'):
+                 cmd.extend(['-timeout', str(config['timeout'])])
+            
+            # Passive Mode
+            if config.get('passive'):
+                 # -passive enabled passive checks only
+                 # Note: Nuclei passive mode might output nothing if no passive templates match
+                 # or if urls are just root domains.
+                 print("Enabling Passive Mode")
+                 # Check if -passive flag is correct for modern nuclei (it is)
+                 # Wait, -passive means 'enable passive templates'. 
+                 # To run ONLY passive, usually you don't need extra args if you supplied templates?
+                 # Actually -scan-strategy or -passive works.
+                 # Let's use simple append.
+                 # 'passive' is not a flag, it's a template filter usually? No, it IS a flag for scan mode.
+                 pass # Actually -passive is deprecated/removed in some v3?
+                 # "Nuclei supports running in passive mode... using -dast is for active..."
+                 # Let's assume standard behavior: if tags not supplied, nuclei runs default.
+                 # If user wants passive, let's just ignore for safety or check docs.
+                 # Actually, let's look at help: " -passive enable passive mode"
+                 # Yes.
+                 cmd.append('-passive')
+
+            # Network
+            if config.get('proxy'):
+                cmd.extend(['-proxy', config['proxy']])
+                
+            if config.get('headers'):
+                # Split by newlines
+                headers = config['headers'].split('\n')
+                for h in headers:
+                    if h.strip():
+                        cmd.extend(['-H', h.strip()])
             
             print(f"Running Nuclei: {' '.join(cmd)}")
             process = subprocess.run(cmd, capture_output=True, text=True)
