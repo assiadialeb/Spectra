@@ -13,7 +13,7 @@ def clone_repository(repo_url, target_dir, depth=None):
     # 1. Get PAT from context or settings
     # context might be missing if running from scheduler thread without app context?
     # Usually we wrap calls in app context.
-    from app.models import Settings
+    from app.models_settings import Settings
     
     pat = None
     try:
