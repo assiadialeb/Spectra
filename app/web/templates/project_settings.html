@@ -58,7 +58,7 @@
                         </li>
                         <li class="nav-item">
                             <button class="nav-link" id="dast-tab" data-bs-toggle="tab" data-bs-target="#dast-config"
-                                type="button" role="tab">DAST (Nuclei)</button>
+                                type="button" role="tab">DAST</button>
                         </li>
                     </ul>
 
@@ -105,8 +105,8 @@
                                             endif %}>Current Files Only (No History)</option>
                                     </select>
                                 </div>
-                                <div class="col-auto" id="gitleaksDepthInput"
-                                    style="display: {% if config.get('gitleaks_mode') == 'depth' %}block{% else %}none{% endif %};">
+                                <div class="col-auto {% if config.get('gitleaks_mode') != 'depth' %}d-none{% endif %}"
+                                    id="gitleaksDepthInput">
                                     <input type="number" class="form-control" name="gitleaks_depth"
                                         placeholder="Depth (e.g. 10)" value="{{ config.get('gitleaks_depth', '') }}">
                                 </div>
@@ -264,8 +264,8 @@
                             <label class="form-label">Time</label>
                             <input type="time" class="form-control" name="time" value="{{ project.schedule_time }}">
                         </div>
-                        <div class="col-md-4" id="day-select-group"
-                            style="{% if project.schedule_frequency != 'weekly' %}display:none;{% endif %}">
+                        <div class="col-md-4 {% if project.schedule_frequency != 'weekly' %}d-none{% endif %}"
+                            id="day-select-group">
                             <label class="form-label">Day of Week</label>
                             <select class="form-select" name="day">
                                 {% for day in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday',
@@ -436,7 +436,12 @@
 
     if (gitleaksModeSelect) {
         gitleaksModeSelect.addEventListener('change', function () {
-            gitleaksDepthInput.style.display = this.value === 'depth' ? 'block' : 'none';
+            // Using Bootstraps d-none class for toggling
+            if (this.value === 'depth') {
+                gitleaksDepthInput.classList.remove('d-none');
+            } else {
+                gitleaksDepthInput.classList.add('d-none');
+            }
         });
     }
 
@@ -446,7 +451,12 @@
     });
 
     document.getElementById('frequencySelect').addEventListener('change', function () {
-        document.getElementById('day-select-group').style.display = this.value === 'weekly' ? 'block' : 'none';
+        const daySelectGroup = document.getElementById('day-select-group');
+        if (this.value === 'weekly') {
+            daySelectGroup.classList.remove('d-none');
+        } else {
+            daySelectGroup.classList.add('d-none');
+        }
     });
 </script>
 {% endblock %}
