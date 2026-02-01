@@ -152,6 +152,7 @@
                 <thead class="table-light">
                     <tr>
                         <th>ID</th>
+                        <th>Type</th>
                         <th>Date</th>
                         <th>Status</th>
                         <th>Findings (C/H)</th>
@@ -164,6 +165,15 @@
                     {% for scan in scan_pagination.items %}
                     <tr>
                         <td>#{{ scan.id }}</td>
+                        <td>
+                            {% if scan.scan_type == 'DAST' %}
+                            <span class="badge bg-info text-dark border">DAST</span>
+                            {% elif scan.scan_type == 'FULL' %}
+                            <span class="badge bg-primary text-white border">FULL</span>
+                            {% else %}
+                            <span class="badge bg-light text-dark border">SAST</span>
+                            {% endif %}
+                        </td>
                         <td>{{ scan.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
                         <td>
                             {% if scan.status == 'COMPLETED' %}

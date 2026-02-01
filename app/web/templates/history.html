@@ -42,6 +42,10 @@
                         <span class="badge bg-info text-dark border">
                             <i class="bi bi-globe me-1"></i>DAST
                         </span>
+                        {% elif scan.scan_type == 'FULL' %}
+                        <span class="badge bg-primary text-white border">
+                            <i class="bi bi-layers-half me-1"></i>FULL
+                        </span>
                         {% else %}
                         <span class="badge bg-light text-dark border">
                             <i class="bi bi-box-seam me-1"></i>SAST
